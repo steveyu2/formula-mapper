@@ -36,14 +36,6 @@ export function ASTTree({ ast, mapping }: ASTTreeProps) {
     if (node.type === 'number') {
       return String(node.value);
     }
-    if (node.type === 'function') {
-      if (!node.argument) {
-        return '';
-      }
-      const arg = astToLatex(node.argument);
-      // LaTeX 函数渲染
-      return `\\${node.name}\{${arg}\}`;
-    }
     if (node.type === 'operator') {
       if (!node.left || !node.right) {
         return '';
