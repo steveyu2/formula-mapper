@@ -25,15 +25,31 @@ export function ASTTree({ ast, mapping }: ASTTreeProps) {
 
   // 将 AST 转换为 LaTeX 表达式
   const astToLatex = (node: ASTNode): string => {
+    if (!node) {
+      return '';
+    }
     if (node.type === 'variable') {
-      return `\\text{${node.name}}`;
+      // 在 LaTeX 中，下划线需要转义为 \_
+      const escapedName = node.name?.replace(/_/g, '\\_') || '';
+      return `\\text{${escapedName}}`;
     }
     if (node.type === 'number') {
       return String(node.value);
     }
+    if (node.type === 'function') {
+      if (!node.argument) {
+        return '';
+      }
+      const arg = astToLatex(node.argument);
+      // LaTeX 函数渲染
+      return `\\${node.name}\{${arg}\}`;
+    }
     if (node.type === 'operator') {
-      const left = astToLatex(node.left!);
-      const right = astToLatex(node.right!);
+      if (!node.left || !node.right) {
+        return '';
+      }
+      const left = astToLatex(node.left);
+      const right = astToLatex(node.right);
 
       switch (node.operator) {
         case '+':
@@ -42,7 +58,7 @@ export function ASTTree({ ast, mapping }: ASTTreeProps) {
           return `${left} - ${right}`;
         case '*':
           // 判断是否需要括号
-          const leftNeedsParens = node.left!.type === 'operator' && node.left!.operator === '+' || node.left!.operator === '-';
+          const leftNeedsParens = node.left!.type === 'operator' && (node.left!.operator === '+' || node.left!.operator === '-');
           const rightNeedsParens = node.right!.type === 'operator';
           const leftStr = leftNeedsParens ? `(${left})` : left;
           const rightStr = rightNeedsParens ? `(${right})` : right;
@@ -65,10 +81,14 @@ export function ASTTree({ ast, mapping }: ASTTreeProps) {
   // 生成中文公式LaTeX：将英文变量替换为中文
   let chineseLatex = englishLatex;
   for (const [englishVar, chineseVar] of Object.entries(mapping)) {
+    // 英文变量名中的下划线已经被转义为 \_
+    const escapedEnglishVar = englishVar.replace(/_/g, '\\_');
+    // 中文变量名中的下划线也需要转义
+    const escapedChineseVar = chineseVar.replace(/_/g, '\\_');
     // 替换 \text{englishVar} 为 \text{chineseVar}
     chineseLatex = chineseLatex.replace(
-      new RegExp(`\\\\text\\{${englishVar.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\}`, 'g'),
-      `\\text{${chineseVar}}`
+      new RegExp(`\\\\text\\{${escapedEnglishVar.replace(/[.*+?^${}()|[\]]/g, '\\$&')}\\}`, 'g'),
+      `\\text{${escapedChineseVar}}`
     );
   }
 

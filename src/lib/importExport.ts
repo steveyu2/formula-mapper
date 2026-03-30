@@ -98,3 +98,22 @@ export async function importFromFile(file: File): Promise<FormulaGroup[]> {
     reader.readAsText(file);
   });
 }
+
+/**
+ * 从 URL 导入数据
+ */
+export async function importFromUrl(url: string): Promise<FormulaGroup[]> {
+  try {
+    const response = await fetch(url);
+    if (!response.ok) {
+      throw new Error(`HTTP 错误: ${response.status} ${response.statusText}`);
+    }
+    const content = await response.text();
+    return importData(content);
+  } catch (error) {
+    if (error instanceof Error && error.message.startsWith('HTTP 错误')) {
+      throw error;
+    }
+    throw new Error('网络请求失败，请检查 URL 是否正确');
+  }
+}

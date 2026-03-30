@@ -6,7 +6,7 @@ export class VariableMapper {
       return [];
     }
 
-    const regex = /\b[A-Za-z][A-Za-z0-9]*\b/g;
+    const regex = /\b[A-Za-z][A-Za-z0-9_]*\b/g;
     const matches = formula.match(regex);
 
     if (!matches) {
@@ -32,15 +32,15 @@ export class VariableMapper {
     }
 
     // 支持英文和中文运算符及括号
-    const parts = formula.split(/[+\-*/×÷()\[\]{}（）]/);
+    const parts = formula.split(/[+\-*/×÷^()\[\]{}（）]/);
 
     const seen = new Set<string>();
     const variables: string[] = [];
 
     for (const part of parts) {
       const trimmed = part.trim();
-      // 过滤掉纯数字和空字符串
-      if (trimmed && !seen.has(trimmed) && !/^\d+(\.\d+)?$/.test(trimmed)) {
+      // 过滤掉纯数字、空字符串、以及纯幂次（如 ^2, ^3）
+      if (trimmed && !seen.has(trimmed) && !/^\d+(\.\d+)?$/.test(trimmed) && !/^\^\d+$/.test(trimmed)) {
         seen.add(trimmed);
         variables.push(trimmed);
       }

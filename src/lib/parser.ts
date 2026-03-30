@@ -33,7 +33,7 @@ export class FormulaParser {
         continue;
       }
 
-      if (['+', '-', '*', '/', '(', ')', '[', ']', '{', '}', '（', '）'].includes(char)) {
+      if (['+', '-', '*', '/', '^', '(', ')', '[', ']', '{', '}', '（', '）'].includes(char)) {
         tokens.push({ type: 'operator', value: char });
         i++;
         continue;
@@ -42,7 +42,7 @@ export class FormulaParser {
       if (/[A-Za-z]/.test(char)) {
         let varName = char;
         i++;
-        while (i < formula.length && /[A-Za-z0-9]/.test(formula[i])) {
+        while (i < formula.length && /[A-Za-z0-9_]/.test(formula[i])) {
           varName += formula[i];
           i++;
         }
@@ -95,10 +95,29 @@ export class FormulaParser {
   }
 
   private parseTerm(): ASTNode {
-    let left = this.parseFactor();
+    let left = this.parsePower();
 
     let token = this.peek();
     while (token && (token.value === '*' || token.value === '/')) {
+      const operator = this.consume().value;
+      const right = this.parsePower();
+      left = {
+        type: 'operator',
+        operator,
+        left,
+        right,
+      };
+      token = this.peek();
+    }
+
+    return left;
+  }
+
+  private parsePower(): ASTNode {
+    let left = this.parseFactor();
+
+    let token = this.peek();
+    while (token && token.value === '^') {
       const operator = this.consume().value;
       const right = this.parseFactor();
       left = {

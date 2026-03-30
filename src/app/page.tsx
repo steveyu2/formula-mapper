@@ -9,7 +9,7 @@ import { SubFormulaManager } from '@/components/SubFormulaManager';
 import { GroupSelector } from '@/components/GroupSelector';
 import { FormulaGroup, Formula, SubFormula } from '@/lib/types';
 import { loadData, saveData, createGroup, createFormula } from '@/lib/storage';
-import { downloadExportData, importFromFile } from '@/lib/importExport';
+import { downloadExportData, importFromFile, importFromUrl } from '@/lib/importExport';
 
 function HomeContent() {
   const router = useRouter();
@@ -56,6 +56,9 @@ function HomeContent() {
   const [editingFormula, setEditingFormula] = useState<Formula | null>(null);
   const [importError, setImportError] = useState<string>('');
   const [showDataMenu, setShowDataMenu] = useState(false);
+  const [showUrlImportModal, setShowUrlImportModal] = useState(false);
+  const [importUrl, setImportUrl] = useState('');
+  const [isImporting, setIsImporting] = useState(false);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const dataMenuRef = useRef<HTMLDivElement>(null);
@@ -389,6 +392,33 @@ function HomeContent() {
     }
   };
 
+  const handleImportFromUrl = async () => {
+    if (!importUrl.trim()) {
+      setImportError('请输入 URL');
+      return;
+    }
+    setIsImporting(true);
+    setImportError('');
+    try {
+      const importedGroups = await importFromUrl(importUrl.trim());
+      if (!confirm(`即将导入 ${importedGroups.length} 个分组，这将覆盖当前数据。确定继续吗？`)) {
+        setIsImporting(false);
+        return;
+      }
+      setGroups(importedGroups);
+      saveData(importedGroups);
+      setSelectedGroupId(null);
+      setImportError('');
+      setShowUrlImportModal(false);
+      setShowDataMenu(false);
+      setImportUrl('');
+    } catch (error) {
+      setImportError(error instanceof Error ? error.message : '从 URL 导入失败');
+    } finally {
+      setIsImporting(false);
+    }
+  };
+
   const openFormulaModal = () => {
     if (!selectedGroupId) {
       alert('请先选择一个分���');
@@ -477,6 +507,18 @@ function HomeContent() {
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
                     </svg>
                     导入数据
+                  </button>
+                  <button
+                    onClick={() => {
+                      setShowDataMenu(false);
+                      setShowUrlImportModal(true);
+                    }}
+                    className="w-full px-4 py-2.5 text-left hover:bg-blue-50 flex items-center gap-3 transition-colors"
+                  >
+                    <svg className="w-4 h-4 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
+                    </svg>
+                    从 URL 导入
                   </button>
                 </div>
               )}
@@ -688,6 +730,55 @@ function HomeContent() {
                 className="px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg transition-colors"
               >
                 {editingFormula ? '更新' : '创建'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* URL 导入弹窗 */}
+      {showUrlImportModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-md mx-4">
+            <div className="px-6 py-4 border-b">
+              <h3 className="text-lg font-semibold text-gray-900">从 URL 导入数据</h3>
+            </div>
+            <div className="p-6">
+              <p className="text-sm text-gray-600 mb-4">
+                输入 JSON 数据文件的 URL 地址，例如：<code className="bg-gray-100 px-1 py-0.5 rounded">/demo-data.json</code>
+              </p>
+              <input
+                type="text"
+                value={importUrl}
+                onChange={(e) => setImportUrl(e.target.value)}
+                placeholder="https://example.com/data.json"
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                onKeyDown={(e) => e.key === 'Enter' && !isImporting && handleImportFromUrl()}
+              />
+            </div>
+            <div className="px-6 py-4 border-t flex justify-end gap-3">
+              <button
+                onClick={() => {
+                  setShowUrlImportModal(false);
+                  setImportUrl('');
+                  setImportError('');
+                }}
+                className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
+              >
+                取消
+              </button>
+              <button
+                onClick={handleImportFromUrl}
+                disabled={isImporting}
+                className="px-4 py-2 bg-blue-500 hover:bg-blue-600 disabled:bg-blue-300 text-white rounded-lg transition-colors flex items-center gap-2"
+              >
+                {isImporting && (
+                  <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                  </svg>
+                )}
+                {isImporting ? '导入中...' : '导入'}
               </button>
             </div>
           </div>

@@ -1,0 +1,107 @@
+{
+  "version": "1.0",
+  "exportDate": "2026-03-30T12:40:45.331Z",
+  "groups": [
+    {
+      "id": "group-1",
+      "name": "财务公式",
+      "parentId": null,
+      "createdAt": 1711800000000,
+      "formulas": [
+        {
+          "id": "formula-1",
+          "name": "复利计算公式",
+          "englishFormula": "P * (1 + r)^n",
+          "chineseFormula": "本金 * (1 + 利率)^期数",
+          "createdAt": 1711800100000,
+          "variableFormulaMapping": {},
+          "subFormulas": []
+        },
+        {
+          "id": "formula-2",
+          "name": "净现值 NPV",
+          "englishFormula": "CF_1 / (1 + r) + CF_2 / (1 + r)^2 + CF_3 / (1 + r)^3",
+          "chineseFormula": "现金流_1 / (1 + 折现率) + 现金流_2 / (1 + 折现率)^2 + 现金流_3 / (1 + 折现率)^3",
+          "createdAt": 1711800200000,
+          "variableFormulaMapping": {},
+          "subFormulas": []
+        },
+        {
+          "id": "formula-3",
+          "name": "内部收益率 IRR",
+          "englishFormula": "CF_1 / (1 + IRR) + CF_2 / (1 + IRR)^2 + CF_3 / (1 + IRR)^3",
+          "chineseFormula": "现金流_1 / (1 + 内部收益率) + 现金流_2 / (1 + 内部收益率)^2 + 现金流_3 / (1 + 内部收益率)^3",
+          "createdAt": 1711800300000,
+          "variableFormulaMapping": {},
+          "subFormulas": []
+        }
+      ]
+    },
+    {
+      "id": "group-2",
+      "name": "永续业务",
+      "parentId": null,
+      "createdAt": 1711801000000,
+      "formulas": []
+    },
+    {
+      "id": "group-2-1",
+      "name": "前端公式",
+      "parentId": "group-2",
+      "createdAt": 1711802000000,
+      "formulas": []
+    },
+    {
+      "id": "group-2-2",
+      "name": "后端公式",
+      "parentId": "group-2",
+      "createdAt": 1711803000000,
+      "formulas": [
+        {
+          "id": "formula-7",
+          "name": "自由现金流 FCF",
+          "englishFormula": "EBIT * (1 - T) + D - CapEx - DeltaNWC",
+          "chineseFormula": "息税前利润 * (1 - 税率) + 折旧 - 资本支出 - 营运资本变动",
+          "createdAt": 1711803100000,
+          "variableFormulaMapping": {
+            "EBIT": "sub_sub-ebit",
+            "DeltaNWC": "sub_sub-delta-nwc"
+          },
+          "subFormulas": [
+            {
+              "id": "sub-ebit",
+              "name": "息税前利润",
+              "englishFormula": "Revenue - COGS - OpEx",
+              "chineseFormula": "营业收入 - 营业成本 - 营业费用"
+            },
+            {
+              "id": "sub-delta-nwc",
+              "name": "营运资本变动",
+              "englishFormula": "NWC_t - NWC_t1",
+              "chineseFormula": "本期营运资本 - 上期营运资本"
+            }
+          ],
+          "groupId": "group-2-2",
+          "groupName": "永续业务/后端公式"
+        }
+      ]
+    },
+    {
+      "id": "1774874357995-hg0chkunl",
+      "name": "test",
+      "parentId": null,
+      "formulas": [
+        {
+          "id": "1774874380662-rtfpwjiu7",
+          "name": "测试公式",
+          "englishFormula": "a+b",
+          "chineseFormula": "变量a+变量b",
+          "createdAt": 1774874380662,
+          "variableFormulaMapping": {},
+          "subFormulas": []
+        }
+      ],
+      "createdAt": 1774874357995
+    }
+  ]
+}

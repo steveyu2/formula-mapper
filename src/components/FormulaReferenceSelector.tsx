@@ -113,7 +113,7 @@ export function FormulaReferenceSelector({
 }
 
 function extractVariables(formula: string): string[] {
-  const regex = /\b[A-Za-z][A-Za-z0-9]*\b/g;
+  const regex = /\b[A-Za-z][A-Za-z0-9_]*\b/g;
   const matches = formula.match(regex);
   if (!matches) return [];
 

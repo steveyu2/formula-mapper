@@ -132,7 +132,7 @@ function tokenizeFormula(formula: string): Token[] {
       continue;
     }
 
-    if (['+', '-', '*', '/', '(', ')', '[', ']', '{', '}', '（', '）'].includes(char)) {
+    if (['+', '-', '*', '/', '^', '(', ')', '[', ']', '{', '}', '（', '）'].includes(char)) {
       const type = ['(', ')', '[', ']', '{', '}', '（', '）'].includes(char) ? 'paren' : 'operator';
       tokens.push({ type, value: char });
       i++;
@@ -142,7 +142,7 @@ function tokenizeFormula(formula: string): Token[] {
     if (/[A-Za-z]/.test(char)) {
       let varName = char;
       i++;
-      while (i < formula.length && /[A-Za-z0-9]/.test(formula[i])) {
+      while (i < formula.length && /[A-Za-z0-9_]/.test(formula[i])) {
         varName += formula[i];
         i++;
       }
