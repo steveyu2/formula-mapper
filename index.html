@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>公式变量映射与可视化工具</title>
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>公式变量映射与可视化工具</h1>
+        </header>
+
+        <!-- 输入区域 -->
+        <section class="input-section">
+            <div class="input-group">
+                <label for="english-formula">英文公式：</label>
+                <input type="text" id="english-formula" value="a+b+c*d" placeholder="例如：a+b+c*d">
+            </div>
+            <div class="input-group">
+                <label for="chinese-formula">中文公式：</label>
+                <input type="text" id="chinese-formula" value="变量1+变量2+变量3*变量4" placeholder="例如：变量1+变量2+变量3*变量4">
+            </div>
+        </section>
+
+        <!-- 映射关系表 -->
+        <section class="mapping-section">
+            <h2>映射关系</h2>
+            <div id="mapping-table" class="mapping-table">
+                <!-- 动态生成映射内容 -->
+            </div>
+        </section>
+
+        <!-- 公式展示区 -->
+        <section class="formula-display-section">
+            <h2>公式展示</h2>
+            <div id="formula-display" class="formula-display">
+                <!-- 动态生成公式展示 -->
+            </div>
+        </section>
+
+        <!-- AST树形图 -->
+        <section class="ast-section">
+            <h2>公式结构树（AST）</h2>
+            <div id="ast-tree" class="ast-tree">
+                <!-- 动态生成AST树 -->
+            </div>
+        </section>
+    </div>
+
+    <script src="js/parser.js"></script>
+    <script src="js/mapper.js"></script>
+    <script src="js/renderer.js"></script>
+    <script src="js/main.js"></script>
+</body>
+</html>

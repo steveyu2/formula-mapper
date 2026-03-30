@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>调试映射</title>
+</head>
+<body>
+    <h1>映射调试</h1>
+    <div id="output"></div>
+
+    <script src="js/mapper.js"></script>
+    <script>
+        const english = 'a+b+c*d';
+        const chinese = '变量1+变量2+变量3*变量4';
+
+        const result = VariableMapper.createMapping(english, chinese);
+
+        const output = document.getElementById('output');
+        output.innerHTML = '<h2>英文公式: ' + english + '</h2>';
+        output.innerHTML += '<h2>中文公式: ' + chinese + '</h2>';
+        output.innerHTML += '<h3>英文变量: ' + JSON.stringify(result.englishVars) + '</h3>';
+        output.innerHTML += '<h3>中文变量: ' + JSON.stringify(result.chineseVars) + '</h3>';
+        output.innerHTML += '<h3>映射对象:</h3><pre>' + JSON.stringify(result.mapping, null, 2) + '</pre>';
+
+        // 测试悬停
+        output.innerHTML += '<h3>测试悬停:</h3>';
+        for (const eng of result.englishVars) {
+            const span = document.createElement('span');
+            span.textContent = eng + ' ';
+            span.style.padding = '5px';
+            span.style.background = '#eee';
+            span.style.margin = '5px';
+            span.style.cursor = 'help';
+            span.title = result.mapping[eng];
+            output.appendChild(span);
+        }
+    </script>
+</body>
+</html>
