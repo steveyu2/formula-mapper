@@ -1,109 +1,227 @@
-# 项目记忆 - 公式变量映射与可视化工具
+# Formula Mapper - 项目记忆
 
-**项目路径**: `/Users/zhy/src/xxxx`
-**创建日期**: 2026-03-27
-**技术栈**: 原生 HTML/CSS/JavaScript，无外部依赖
+## 项目概述
 
----
+公式变量映射和可视化工具，使用 Next.js 16.2.1 + React 19 + Tailwind CSS + TypeScript。
 
-## 项目结构
+### 核心功能
+- 公式变量映射（英文 ↔ 中文）
+- AST 树可视化（KaTeX 渲染）
+- 分层分组管理（主分组 + 二级子分组）
+- 子公式支持（公式内嵌套子公式）
+- URL 公式分享（`?formula=` 参数）
+- LocalStorage 持久化（侧边栏状态、选中分组）
+- 公式搜索
+- 级联分组选择器
+
+## 技术栈
+
+- **框架**: Next.js 16.2.1 (App Router)
+- **前端**: React 19, TypeScript
+- **样式**: Tailwind CSS
+- **数学渲染**: KaTeX
+- **解析**: 自递归下降解析器
+- **存储**: LocalStorage
+
+## 重要文件结构
 
 ```
-xxxx/
-├── index.html          # 主页面
-├── css/
-│   └── style.css       # 样式文件（渐变色设计）
-├── js/
-│   ├── parser.js       # 递归下降表达式解析器
-│   ├── mapper.js       # 变量映射逻辑
-│   ├── renderer.js     # DOM渲染器
-│   └── main.js         # 主入口和事件绑定
-└── docs/
-    └── project.md      # 需求文档
+src/
+├── app/
+│   └── page.tsx                    # 主页面，所有状态管理
+├── components/
+│   ├── FormulaList.tsx             # 公式列表（含搜索、分组标签）
+│   ├── GroupList.tsx               # 左侧分组树（可展开/收起）
+│   ├── GroupSelector.tsx           # 级联分组选择器
+│   ├── FormulaRenderer.tsx         # 公式渲染器（支持引用点击）
+│   ├── ASTTree.tsx                 # AST 树可视化
+│   ├── FormulaReferenceModal.tsx   # 引用公��弹窗
+│   ├── SubFormulaManager.tsx       # 子公式管理
+│   └── FormulaReferenceSelector.tsx # 变量引用公式映射
+└── lib/
+    ├── types.ts                    # 类型定义
+    ├── parser.ts                   # 公式解析器
+    ├── mapper.ts                   # 变量映射器
+    └── storage.ts                  # LocalStorage 封装
 ```
 
----
+## 关键类型定义
 
-## 核心功能
-
-1. **双公式输入** - 英文公式和中文公式输入框，默认值：`a+b+c*d` 和 `变量1+变量2+变量3*变量4`
-2. **变量自动映射** - 按首次出现顺序提取变量并建立一一对应关系
-3. **公式渲染** - 公式中的变量支持悬停显示中文映射（使用 `title` 属性）
-4. **AST解析与可视化** - 递归下降解析器生成抽象语法树，以图形化树形结构展示
-
----
-
-## 关键实现细节
-
-### 变量提取正则表达式
-
-- **英文变量**: `/\b[A-Za-z][A-Za-z0-9]*\b/g` - 字母开头，后跟字母或数字
-- **中文变量**: `/[\u4e00-\u9fa5]+/g` - 连续汉字序列
-
-### AST数据结构
-
-```javascript
-// 变量节点
-{ type: 'variable', name: 'a' }
-
-// 运算符节点
-{
-  type: 'operator',
-  operator: '+',
-  left: Node,
-  right: Node
+### FormulaGroup
+```typescript
+interface FormulaGroup {
+  id: string;
+  name: string;
+  parentId: string | null;  // 支持二级分组
+  formulas: Formula[];
+  createdAt: number;
 }
 ```
 
-### 表达式解析器
-
-- **算法**: 递归下降解析器
-- **支持运算符**: `+ - * /`
-- **运算符优先级**: `* /` > `+ -`，括号改变优先级
-- **解析方法**:
-  - `parseExpression()` - 处理加减法（最外层）
-  - `parseTerm()` - 处理乘除法（中间层）
-  - `parseFactor()` - 处理变量、数字、括号（最内层）
-
-### 树形渲染
-
-- 使用 **CSS Flexbox** 递归实现树形布局
-- 运算符节点：渐变色圆形背景
-- 变量节点：白色背景带边框，支持悬停显示中文映射
-
----
-
-## 已修复问题
-
-### 语法错误修复 (2026-03-27)
-
-**文件**: `js/parser.js` 第177行
-**问题**: 多余的引号导致语法错误
-```javascript
-// 修复前
-throw new Error('括号不匹配：缺少右括号')';
-
-// 修复后
-throw new Error('括号不匹配：缺少右括号');
+### Formula
+```typescript
+interface Formula {
+  id: string;
+  name: string;
+  englishFormula: string;
+  chineseFormula: string;
+  variableFormulaMapping?: Record<string, string>;  // 变量 → 公式ID
+  subFormulas?: SubFormula[];
+  createdAt: number;
+}
 ```
-**影响**: 导致整个 `parser.js` 无法加载，`FormulaParser` 未定义
 
----
+### SubFormula
+```typescript
+interface SubFormula {
+  id: string;
+  name: string;
+  englishFormula: string;
+  chineseFormula: string;
+}
+```
 
-## 验收标准
+## 核心业务逻辑
 
-1. 页面加载时默认展示 `a+b+c*d` 和 `变量1+变量2+变量3*变量4`
-2. 鼠标悬停在公式变量上显示对应中文映射
-3. AST树正确显示运算符优先级（`*` 在树的下层）
-4. 修改公式后所有区域实时更新
-5. 输入非法公式时显示错误提示
+### 分组过滤逻辑（FormulaList.tsx）
 
----
+**关键修复**: 主分组应显示所有子分组的公式
 
-## 扩展方向
+```typescript
+// 获取后代分组 ID（递归）
+const getDescendantGroupIds = (groupId: string): string[] => {
+  const descendants = [groupId];
+  const children = groups.filter(g => g.parentId === groupId);
+  children.forEach(child => {
+    descendants.push(...getDescendantGroupIds(child.id));
+  });
+  return descendants;
+};
 
-如需扩展功能可考虑：
-- 支持更多运算符（如 `^` 幂运算）
-- 支持函数（如 `sin`, `cos`）
-- 导出AST为JSON或图片
-- 添加公式历史记录
+// 过滤逻辑
+const formulasWithGroup = selectedGroupId
+  ? allFormulasWithGroup.filter(f => {
+      const selectedGroup = groups.find(g => g.id === selectedGroupId);
+      // 主分组：显示自己及所有子分组的公式
+      if (!selectedGroup?.parentId) {
+        return getDescendantGroupIds(selectedGroupId).includes(f.groupId);
+      }
+      // 子分组：只显示自己的公式
+      return f.groupId === selectedGroupId;
+    })
+  : allFormulasWithGroup;
+```
+
+### URL 分享机制（page.tsx）
+
+```typescript
+// 1. 根据 URL 参数展开公式
+useEffect(() => {
+  if (urlFormulaId) {
+    for (const group of savedGroups) {
+      const formula = group.formulas.find(f => f.id === urlFormulaId);
+      if (formula) {
+        setSelectedGroupId(group.id);
+        handleSelectFormula(urlFormulaId);
+        break;
+      }
+    }
+  }
+}, [urlFormulaId]);
+
+// 2. 展开公式时更新 URL
+const handleSelectFormula = (formulaId: string | null) => {
+  // ... 更新 URL
+  const params = new URLSearchParams(searchParams.toString());
+  if (formulaId) params.set('formula', formulaId);
+  else params.delete('formula');
+  router.push(newUrl, { scroll: false });
+};
+
+// 3. 切换分组时清空 URL
+const handleSelectGroup = (groupId: string | null) => {
+  setSelectedGroupId(groupId);
+  const params = new URLSearchParams(searchParams.toString());
+  params.delete('formula');
+  // ...
+};
+```
+
+### LocalStorage 缓存策略
+
+```typescript
+// 缓存选中分组和侧边栏状态
+useEffect(() => {
+  if (selectedGroupId) {
+    localStorage.setItem('selectedGroupId', selectedGroupId);
+  } else {
+    localStorage.removeItem('selectedGroupId');
+  }
+  localStorage.setItem('sidebarCollapsed', String(sidebarCollapsed));
+}, [selectedGroupId, sidebarCollapsed]);
+
+// 初始化时恢复
+useEffect(() => {
+  const cachedSelectedGroupId = localStorage.getItem('selectedGroupId');
+  const cachedSidebarCollapsed = localStorage.getItem('sidebarCollapsed');
+  // ...
+}, []);
+```
+
+## 常见问题及解决方案
+
+### 1. useEffect 无限循环
+**问题**: 依赖项中使用整个对象导致重复渲染
+```typescript
+// ❌ 错误
+useEffect(() => { ... }, [formula, isExpanded]);
+
+// ✅ 正确
+useEffect(() => { ... }, [formula.id, formula.englishFormula, formula.chineseFormula, isExpanded]);
+```
+
+### 2. useState 在渲染函数��
+**问题**: 在 `renderGroupTree` 等渲染函数中使用 `useState`
+**解决**: 将状态提升到组件顶层
+
+### 3. 分组过滤逻辑错误
+**问题**: 判断 `formulaGroup.parentId` 而非 `selectedGroup.parentId`
+```typescript
+// ❌ 错误
+if (!formulaGroup?.parentId) { ... }
+
+// ✅ 正确
+if (!selectedGroup?.parentId) { ... }
+```
+
+### 4. TypeScript 类型错误
+**问题**: 缺少 `groupId` 和 `parentGroupId` 字段
+**解决**: 在 `formulaForm` 状态中添加这些字段
+
+## 性能优化
+
+1. **useMemo 缓存**
+   - `FormulaReferenceSelector.tsx`: 变量提取使用 `useMemo`
+
+2. **避免重复计算**
+   - 分组树构建、公式计数等逻辑保持简洁
+
+3. **控制台日志**
+   - 仅保留必要的错误日志（storage.ts, ASTTree.tsx）
+
+## 开发注意事项
+
+1. **状态管理**: 所有状态在 `page.tsx` 集中管理
+2. **数据流**: 单向数据流，props 传递
+3. **类型安全**: 严格使用 TypeScript 类型
+4. **本地存储**: 数据变更后立即调用 `saveData()`
+5. **URL 同步**: 状态变更时同步更新 URL（使用 `scroll: false`）
+
+## 测试要点
+
+- 主分组显示所有子分组公式
+- 子分组只显示自己的公式
+- 分组标签显示完整路径（如"永续/前端公式"）
+- URL 分享功能正常
+- LocalStorage 缓存生效
+- 搜索功能正常
