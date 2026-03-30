@@ -146,8 +146,8 @@ function HomeContent() {
     let currentGroup = groups.find(g => g.id === groupId);
     while (currentGroup) {
       path.unshift(currentGroup.name);
-      if (currentGroup.parentId) {
-        currentGroup = groups.find(g => g.id === currentGroup.parentId);
+      if (currentGroup?.parentId) {
+        currentGroup = groups.find(g => g.id === currentGroup?.parentId);
       } else {
         currentGroup = undefined;
       }
@@ -400,8 +400,8 @@ function HomeContent() {
     // 找到根分组
     let rootGroupId = selectedGroupId;
     let currentGroup = groups.find(g => g.id === selectedGroupId);
-    while (currentGroup && currentGroup.parentId) {
-      const parent = groups.find(g => g.id === currentGroup.parentId);
+    while (currentGroup && currentGroup?.parentId) {
+      const parent = groups.find(g => g.id === currentGroup?.parentId);
       if (parent) {
         rootGroupId = parent.id;
         currentGroup = parent;
