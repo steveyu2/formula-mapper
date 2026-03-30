@@ -12,7 +12,7 @@ interface FormulaReferenceModalProps {
   onClose: () => void;
   allFormulas?: Record<string, Formula>;
   subFormulas?: SubFormula[]; // 添加子公式支持
-  onNestedReference?: (formula: Formula | SubFormula) => void;
+  onNestedReference?: (_formula: Formula | SubFormula) => void;
 }
 
 export function FormulaReferenceModal({
@@ -20,7 +20,6 @@ export function FormulaReferenceModal({
   onClose,
   allFormulas = {},
   subFormulas = [],
-  onNestedReference
 }: FormulaReferenceModalProps) {
   const [ast, setAst] = useState<any>(null);
   const [mapping, setMapping] = useState<Record<string, string>>({});
@@ -151,8 +150,6 @@ export function FormulaReferenceModal({
                 <ASTTree
                   ast={ast}
                   mapping={mapping}
-                  englishFormula={formula.englishFormula}
-                  chineseFormula={formula.chineseFormula}
                 />
               </div>
             </div>

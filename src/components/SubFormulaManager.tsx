@@ -6,7 +6,7 @@ import { ConfirmDialog } from './ConfirmDialog';
 
 interface SubFormulaManagerProps {
   subFormulas: SubFormula[];
-  onChange: (subFormulas: SubFormula[]) => void;
+  onChange: (_subFormulas: SubFormula[]) => void;
 }
 
 export function SubFormulaManager({ subFormulas, onChange }: SubFormulaManagerProps) {
@@ -25,7 +25,7 @@ export function SubFormulaManager({ subFormulas, onChange }: SubFormulaManagerPr
 
   const handleAdd = () => {
     setEditingSubFormula(null);
-    setForm({ name: '', englishFormula: '', chineseFormula: '', englishVars: '', chineseVars: '' });
+    setForm({ name: '', englishFormula: '', chineseFormula: '' });
     setIsAddModalOpen(true);
   };
 
@@ -59,7 +59,7 @@ export function SubFormulaManager({ subFormulas, onChange }: SubFormulaManagerPr
     }
 
     setIsAddModalOpen(false);
-    setForm({ name: '', englishFormula: '', chineseFormula: '', englishVars: '', chineseVars: '' });
+    setForm({ name: '', englishFormula: '', chineseFormula: '' });
   };
 
   const handleDelete = (subFormula: SubFormula) => {

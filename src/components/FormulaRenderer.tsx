@@ -7,7 +7,7 @@ interface FormulaRendererProps {
   formula: string;
   mapping: Record<string, string>;
   formulaReferences?: Record<string, { name: string; englishFormula: string; chineseFormula: string; id?: string; isSubFormula?: boolean }>;
-  onFormulaReferenceClick?: (formula: Formula | SubFormula) => void;
+  onFormulaReferenceClick?: (_formula: Formula | SubFormula) => void;
 }
 
 // 为每个变量分配不同的颜色（蓝色色调）

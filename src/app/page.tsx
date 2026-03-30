@@ -155,8 +155,6 @@ function HomeContent() {
     return path.join('/');
   };
 
-  const selectedGroup = groups.find((g) => g.id === selectedGroupId);
-
   const handleCreateGroup = (parentId: string | null) => {
     const finalParentId = parentId !== null ? parentId : selectedGroupId;
     setNewGroupName('');

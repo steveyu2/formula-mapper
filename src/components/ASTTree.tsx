@@ -6,11 +6,9 @@ import { ASTNode } from '@/lib/types';
 interface ASTTreeProps {
   ast: ASTNode;
   mapping: Record<string, string>;
-  englishFormula: string;
-  chineseFormula: string;
 }
 
-export function ASTTree({ ast, mapping, englishFormula, chineseFormula }: ASTTreeProps) {
+export function ASTTree({ ast, mapping }: ASTTreeProps) {
   const [katexLoaded, setKatexLoaded] = useState(false);
   const [showChinese, setShowChinese] = useState(false);
 

@@ -6,7 +6,7 @@ import { FormulaGroup } from '@/lib/types';
 interface GroupSelectorProps {
   groups: FormulaGroup[];
   groupId: string | null;
-  onChange: (parentGroupId: string | null, groupId: string | null) => void;
+  onChange: (_parentGroupId: string | null, _groupId: string | null) => void;
 }
 
 interface TreeNode {
@@ -53,7 +53,8 @@ export function GroupSelector({ groups, groupId, onChange }: GroupSelectorProps)
     let current = groups.find(g => g.id === groupId);
     while (current) {
       path.unshift(current.name);
-      current = current.parentId ? groups.find(g => g.id === current.parentId) : undefined;
+      const parentId: string | null = current.parentId;
+      current = parentId ? groups.find(g => g.id === parentId) : undefined;
     }
     return path.join(' / ');
   }, [groupId, groups]);

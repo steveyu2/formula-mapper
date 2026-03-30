@@ -13,9 +13,9 @@ interface FormulaListProps {
   groups: FormulaGroup[];
   selectedGroupId: string | null;
   selectedFormulaId: string | null;
-  onSelectFormula: (formulaId: string | null) => void;
-  onDeleteFormula: (formulaId: string) => void;
-  onEditFormula: (formula: Formula) => void;
+  onSelectFormula: (_formulaId: string | null) => void;
+  onDeleteFormula: (_formulaId: string) => void;
+  onEditFormula: (_formula: Formula) => void;
 }
 
 export function FormulaList({
@@ -342,8 +342,6 @@ function FormulaItem({
                 <ASTTree
                   ast={ast}
                   mapping={mapping}
-                  englishFormula={formula.englishFormula}
-                  chineseFormula={formula.chineseFormula}
                 />
               </div>
             </div>

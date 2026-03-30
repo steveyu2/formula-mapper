@@ -6,7 +6,7 @@ import { FormulaGroup, SubFormula } from '@/lib/types';
 interface FormulaReferenceSelectorProps {
   groups: FormulaGroup[];
   variableFormulaMapping: Record<string, string>;
-  onChange: (mapping: Record<string, string>) => void;
+  onChange: (_mapping: Record<string, string>) => void;
   englishFormula: string;
   subFormulas?: SubFormula[]; // 添加子公式支持
 }

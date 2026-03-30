@@ -7,10 +7,10 @@ import { ConfirmDialog } from './ConfirmDialog';
 interface GroupListProps {
   groups: FormulaGroup[];
   selectedGroupId: string | null;
-  onSelectGroup: (groupId: string | null) => void;
-  onCreateGroup: (parentId: string | null) => void;
-  onDeleteGroup: (groupId: string) => void;
-  onEditGroup: (groupId: string, newName: string) => void;
+  onSelectGroup: (_groupId: string | null) => void;
+  onCreateGroup: (_parentId: string | null) => void;
+  onDeleteGroup: (_groupId: string) => void;
+  onEditGroup: (_groupId: string, _newName: string) => void;
 }
 
 export function GroupList({
@@ -97,7 +97,8 @@ export function GroupList({
       let current = groups.find(g => g.id === selectedGroupId);
       while (current && current.parentId) {
         toExpand.push(current.parentId);
-        current = groups.find(g => g.id === current.parentId);
+        const parentId: string = current.parentId;
+        current = groups.find(g => g.id === parentId);
       }
       if (toExpand.length > 0) {
         setExpandedGroups(prev => {
