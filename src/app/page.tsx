@@ -7,6 +7,7 @@ import { FormulaList } from '@/components/FormulaList';
 import { FormulaReferenceSelector } from '@/components/FormulaReferenceSelector';
 import { SubFormulaManager } from '@/components/SubFormulaManager';
 import { GroupSelector } from '@/components/GroupSelector';
+import { ConfirmDialog } from '@/components/ConfirmDialog';
 import { FormulaGroup, Formula, SubFormula } from '@/lib/types';
 import { loadData, saveData, createGroup, createFormula } from '@/lib/storage';
 import { downloadExportData, importFromFile, importFromUrl } from '@/lib/importExport';
@@ -59,6 +60,19 @@ function HomeContent() {
   const [showUrlImportModal, setShowUrlImportModal] = useState(false);
   const [importUrl, setImportUrl] = useState('');
   const [isImporting, setIsImporting] = useState(false);
+  const [confirmDialog, setConfirmDialog] = useState<{
+    open: boolean;
+    title: string;
+    message: string;
+    onConfirm: () => void;
+    onCancel?: () => void;
+    variant?: 'danger' | 'default';
+  }>({
+    open: false,
+    title: '',
+    message: '',
+    onConfirm: () => {},
+  });
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const dataMenuRef = useRef<HTMLDivElement>(null);
@@ -376,17 +390,23 @@ function HomeContent() {
     if (!file) return;
     try {
       const importedGroups = await importFromFile(file);
-      if (!confirm(`即将导入 ${importedGroups.length} 个分组，这将覆盖当前数据。确定继续吗？`)) {
-        return;
-      }
-      setGroups(importedGroups);
-      saveData(importedGroups);
-      setSelectedGroupId(null);
-      setImportError('');
-      setShowDataMenu(false);
-      if (fileInputRef.current) {
-        fileInputRef.current.value = '';
-      }
+      setConfirmDialog({
+        open: true,
+        title: '确认导入',
+        message: `即将导入 ${importedGroups.length} 个分组，这将覆盖当前数据。确定继续吗？`,
+        variant: 'default',
+        onConfirm: () => {
+          setGroups(importedGroups);
+          saveData(importedGroups);
+          setSelectedGroupId(null);
+          setImportError('');
+          setShowDataMenu(false);
+          if (fileInputRef.current) {
+            fileInputRef.current.value = '';
+          }
+          setConfirmDialog(prev => ({ ...prev, open: false }));
+        },
+      });
     } catch (error) {
       setImportError(error instanceof Error ? error.message : '导入失败');
     }
@@ -401,20 +421,29 @@ function HomeContent() {
     setImportError('');
     try {
       const importedGroups = await importFromUrl(importUrl.trim());
-      if (!confirm(`即将导入 ${importedGroups.length} 个分组，这将覆盖当前数据。确定继续吗？`)) {
-        setIsImporting(false);
-        return;
-      }
-      setGroups(importedGroups);
-      saveData(importedGroups);
-      setSelectedGroupId(null);
-      setImportError('');
-      setShowUrlImportModal(false);
-      setShowDataMenu(false);
-      setImportUrl('');
+      setConfirmDialog({
+        open: true,
+        title: '确认导入',
+        message: `即将导入 ${importedGroups.length} 个分组，这将覆盖当前数据。确定继续吗？`,
+        variant: 'default',
+        onConfirm: () => {
+          setGroups(importedGroups);
+          saveData(importedGroups);
+          setSelectedGroupId(null);
+          setImportError('');
+          setShowUrlImportModal(false);
+          setShowDataMenu(false);
+          setImportUrl('');
+          setIsImporting(false);
+          setConfirmDialog(prev => ({ ...prev, open: false }));
+        },
+        onCancel: () => {
+          setIsImporting(false);
+          setConfirmDialog(prev => ({ ...prev, open: false }));
+        },
+      });
     } catch (error) {
       setImportError(error instanceof Error ? error.message : '从 URL 导入失败');
-    } finally {
       setIsImporting(false);
     }
   };
@@ -520,6 +549,30 @@ function HomeContent() {
                     </svg>
                     从 URL 导入
                   </button>
+                  <button
+                    onClick={() => {
+                      setConfirmDialog({
+                        open: true,
+                        title: '清空数据',
+                        message: '确定要清空所有数据吗？此操作不可恢复。',
+                        variant: 'danger',
+                        onConfirm: () => {
+                          setGroups([]);
+                          saveData([]);
+                          setSelectedGroupId(null);
+                          setSelectedFormulaId(null);
+                          setConfirmDialog(prev => ({ ...prev, open: false }));
+                        },
+                      });
+                      setShowDataMenu(false);
+                    }}
+                    className="w-full px-4 py-2.5 text-left hover:bg-blue-50 flex items-center gap-3 transition-colors text-red-600"
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                    </svg>
+                    清空数据
+                  </button>
                 </div>
               )}
             </div>
@@ -534,7 +587,7 @@ function HomeContent() {
           </div>
 
           {importError && (
-            <div className="mt-4 mx-auto max-w-md bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-xl shadow-sm">
+            <div className="fixed top-4 left-1/2 -translate-x-1/2 z-[200] bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-xl shadow-lg">
               <p className="font-medium text-sm">导入失败</p>
               <p className="text-sm mt-1">{importError}</p>
             </div>
@@ -745,7 +798,16 @@ function HomeContent() {
             </div>
             <div className="p-6">
               <p className="text-sm text-gray-600 mb-4">
-                输入 JSON 数据文件的 URL 地址，例如：<code className="bg-gray-100 px-1 py-0.5 rounded">/demo-data.json</code>
+                点击复制示例数据 URL：
+                <button
+                  onClick={() => {
+                    navigator.clipboard.writeText('https://formula-mapper.netlify.app/demo-data.json');
+                    setImportUrl('https://formula-mapper.netlify.app/demo-data.json');  
+                  }}
+                  className="text-blue-600 hover:text-blue-800 underline ml-1"
+                >
+                  /demo-data.json
+                </button>
               </p>
               <input
                 type="text"
@@ -784,6 +846,18 @@ function HomeContent() {
           </div>
         </div>
       )}
+
+      {/* 确认对话框 */}
+      <ConfirmDialog
+        isOpen={confirmDialog.open}
+        title={confirmDialog.title}
+        message={confirmDialog.message}
+        confirmText="确定"
+        cancelText="取消"
+        variant={confirmDialog.variant}
+        onConfirm={confirmDialog.onConfirm}
+        onCancel={confirmDialog.onCancel || (() => setConfirmDialog(prev => ({ ...prev, open: false })))}
+      />
     </div>
   );
 }

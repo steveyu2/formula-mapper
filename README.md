@@ -2,8 +2,7 @@
 
 Formula Mapper 是一个强大而直观的工具，旨在帮助用户映射、可视化和管理复杂的数学及业务公式。它支持中英文变量映射、层级分组、子公式嵌套和 AST (抽象语法树) 可视化，是技术文档、金融建模和学术研究的理想选择。[DEMO](https://formula-mapper.netlify.app/)
 
-![Formula Mapper Screenshot](https://i.imgur.com/your-screenshot.png)  
-*（建议替换为你的项目截图）*
+![Formula Mapper Screenshot](./public/demo-image.png)  
 
 ## ✨ 核心功能
 
