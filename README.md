@@ -2,6 +2,9 @@
 
 Formula Mapper is a powerful and intuitive tool designed to help users map, visualize, and manage complex mathematical and business formulas. It supports bilingual variable mapping (English/Chinese), hierarchical grouping, nested sub-formulas, and AST (Abstract Syntax Tree) visualization, making it an ideal choice for technical documentation, financial modeling, and academic research.
 
+---
+
+### [中文文档](./README_zh.md)
 ### Try the [DEMO](https://formula-mapper.netlify.app/)
 
 ![Formula Mapper Screenshot](./public/demo-image.png)
@@ -93,7 +96,3 @@ Contributions of all kinds are welcome! If you have any ideas, suggestions, or f
 ## 📄 License
 
 This project is licensed under the MIT License. See the `LICENSE` file for details.
-
----
-
-[中文文档](./README_zh.md)

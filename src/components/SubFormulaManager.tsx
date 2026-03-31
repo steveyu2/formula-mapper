@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { toast } from 'sonner';
 import { SubFormula } from '@/lib/types';
 import { ConfirmDialog } from './ConfirmDialog';
 
@@ -41,7 +42,7 @@ export function SubFormulaManager({ subFormulas, onChange }: SubFormulaManagerPr
 
   const handleSave = () => {
     if (!form.name.trim() || !form.englishFormula.trim() || !form.chineseFormula.trim()) {
-      alert('请填写所有必填字段');
+      toast.error('请填写所有必填字段');
       return;
     }
 

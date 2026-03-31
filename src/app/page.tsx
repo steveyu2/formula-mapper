@@ -2,12 +2,15 @@
 
 import { useState, useEffect, useRef, Suspense, useCallback } from 'react';
 import { useSearchParams, useRouter, usePathname } from 'next/navigation';
+import { toast } from 'sonner';
 import { GroupList } from '@/components/GroupList';
 import { FormulaList } from '@/components/FormulaList';
 import { FormulaReferenceSelector } from '@/components/FormulaReferenceSelector';
 import { SubFormulaManager } from '@/components/SubFormulaManager';
 import { GroupSelector } from '@/components/GroupSelector';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
+import { CloudSyncModal } from '@/components/CloudSyncModal';
+import { CloudSyncButton } from '@/components/CloudSyncButton';
 import { FormulaGroup, Formula, SubFormula } from '@/lib/types';
 import { loadData, saveData, createGroup, createFormula } from '@/lib/storage';
 import { downloadExportData, importFromFile, importFromUrl } from '@/lib/importExport';
@@ -60,6 +63,7 @@ function HomeContent() {
   const [showUrlImportModal, setShowUrlImportModal] = useState(false);
   const [importUrl, setImportUrl] = useState('');
   const [isImporting, setIsImporting] = useState(false);
+  const [showCloudSyncModal, setShowCloudSyncModal] = useState(false);
   const [confirmDialog, setConfirmDialog] = useState<{
     open: boolean;
     title: string;
@@ -76,6 +80,7 @@ function HomeContent() {
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const dataMenuRef = useRef<HTMLDivElement>(null);
+
   const [newGroupName, setNewGroupName] = useState('');
   const [newGroupParentId, setNewGroupParentId] = useState<string | null>(null);
   const [formulaForm, setFormulaForm] = useState<{
@@ -221,11 +226,11 @@ function HomeContent() {
   const handleCreateFormula = () => {
     const targetGroupId = formulaForm.groupId;
     if (!targetGroupId) {
-      alert('请选择一个分组');
+      toast.error('请选择一个分组');
       return;
     }
     if (!formulaForm.name.trim() || !formulaForm.englishFormula.trim() || !formulaForm.chineseFormula.trim()) {
-      alert('请填写所有字段');
+      toast.error('请填写所有字段');
       return;
     }
     const currentGroup = groups.find(g => g.id === targetGroupId);
@@ -233,7 +238,7 @@ function HomeContent() {
       f => f.name.toLowerCase() === formulaForm.name.trim().toLowerCase()
     );
     if (isDuplicate) {
-      alert('该分组下已存在同名公式，请使用不同的名称');
+      toast.error('该分组下已存在同名公式，请使用不同的名称');
       return;
     }
     const newFormula = createFormula(
@@ -308,13 +313,13 @@ function HomeContent() {
   const handleUpdateFormula = () => {
     if (!editingFormula) return;
     if (!formulaForm.name.trim() || !formulaForm.englishFormula.trim() || !formulaForm.chineseFormula.trim()) {
-      alert('请填写所有字段');
+      toast.error('请填写所有字段');
       return;
     }
 
     const targetGroupId = formulaForm.groupId;
     if (!targetGroupId) {
-      alert('请选择一个分组');
+      toast.error('请选择一个分组');
       return;
     }
 
@@ -328,7 +333,7 @@ function HomeContent() {
         other => other.id !== editingFormula.id && other.name.toLowerCase() === formulaForm.name.trim().toLowerCase()
       );
       if (hasDuplicate) {
-        alert('该分组下已存在同名公式');
+        toast.error('该分组下已存在同名公式');
         return;
       }
     }
@@ -380,8 +385,9 @@ function HomeContent() {
     try {
       downloadExportData(groups);
       setShowDataMenu(false);
+      toast.success('数据导出成功');
     } catch (error) {
-      alert('导出失败：' + (error instanceof Error ? error.message : '未知错误'));
+      toast.error('导出失败：' + (error instanceof Error ? error.message : '未知错误'));
     }
   };
 
@@ -450,7 +456,7 @@ function HomeContent() {
 
   const openFormulaModal = () => {
     if (!selectedGroupId) {
-      alert('请先选择一个分���');
+      toast.error('请先选择一个分组');
       return;
     }
     setEditingFormula(null);
@@ -551,6 +557,18 @@ function HomeContent() {
                   </button>
                   <button
                     onClick={() => {
+                      setShowDataMenu(false);
+                      setShowCloudSyncModal(true);
+                    }}
+                    className="w-full px-4 py-2.5 text-left hover:bg-blue-50 flex items-center gap-3 transition-colors"
+                  >
+                    <svg className="w-4 h-4 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 15a4 4 0 004 4h9a5 5 0 10-.1-9.999 5.002 5.002 0 10-9.78 2.096A4.001 4.001 0 003 15z" />
+                    </svg>
+                    云同步
+                  </button>
+                  <button
+                    onClick={() => {
                       setConfirmDialog({
                         open: true,
                         title: '清空数据',
@@ -576,6 +594,15 @@ function HomeContent() {
                 </div>
               )}
             </div>
+
+            {/* 云端同步按钮 - 配置后显示下拉菜单 */}
+            <CloudSyncButton 
+              groups={groups}
+              setGroups={setGroups}
+              setSelectedGroupId={setSelectedGroupId}
+              setSelectedFormulaId={setSelectedFormulaId}
+              setShowCloudSyncModal={setShowCloudSyncModal}
+            />
 
             <input
               ref={fileInputRef}
@@ -857,6 +884,19 @@ function HomeContent() {
         variant={confirmDialog.variant}
         onConfirm={confirmDialog.onConfirm}
         onCancel={confirmDialog.onCancel || (() => setConfirmDialog(prev => ({ ...prev, open: false })))}
+      />
+
+      {/* 云同步弹窗 */}
+      <CloudSyncModal
+        isOpen={showCloudSyncModal}
+        onClose={() => setShowCloudSyncModal(false)}
+        groups={groups}
+        onLoadData={(loadedGroups) => {
+          setGroups(loadedGroups);
+          saveData(loadedGroups);
+          setSelectedGroupId(null);
+          setSelectedFormulaId(null);
+        }}
       />
     </div>
   );

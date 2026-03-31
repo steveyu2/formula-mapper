@@ -1,0 +1,169 @@
+import { BaseStorageProvider } from './base';
+import {
+  StorageProviderType,
+  CloudStorageData,
+  StorageResult,
+  CloudflareConfig,
+} from '../types';
+
+/**
+ * Cloudflare KV 存储提供者
+ * 通过 Cloudflare Workers API 与 KV 存储交互
+ */
+export class CloudflareStorageProvider extends BaseStorageProvider {
+  readonly type = StorageProviderType.CLOUDFLARE;
+  readonly name = 'Cloudflare KV';
+
+  private cloudflareConfig: CloudflareConfig;
+
+  constructor(config: CloudflareConfig) {
+    super(config);
+    this.cloudflareConfig = config;
+  }
+
+  /**
+   * 保存数据到 Cloudflare KV
+   */
+  async save(key: string, data: CloudStorageData): Promise<StorageResult<void>> {
+    return this.wrapOperation(async () => {
+      await this.withRetry(async () => {
+        const url = `${this.cloudflareConfig.endpoint}/save`;
+        console.log('[Cloudflare] Saving to:', url);
+        
+        const response = await fetch(url, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            ...(this.cloudflareConfig.apiKey && {
+              'Authorization': `Bearer ${this.cloudflareConfig.apiKey}`,
+            }),
+          },
+          body: JSON.stringify({
+            key,
+            data,
+            namespaceId: this.cloudflareConfig.namespaceId,
+          }),
+        });
+
+        console.log('[Cloudflare] Response status:', response.status);
+
+        if (!response.ok) {
+          const text = await response.text();
+          console.error('[Cloudflare] Error response:', text);
+          this.handleHttpError(response);
+        }
+      });
+    }, '保存到 Cloudflare KV 失败');
+  }
+
+  /**
+   * 从 Cloudflare KV 加载数据
+   */
+  async load(key: string): Promise<StorageResult<CloudStorageData>> {
+    return this.wrapOperation(async () => {
+      return await this.withRetry(async () => {
+        const url = new URL(`${this.cloudflareConfig.endpoint}/load`);
+        url.searchParams.set('key', key);
+        if (this.cloudflareConfig.namespaceId) {
+          url.searchParams.set('namespaceId', this.cloudflareConfig.namespaceId);
+        }
+
+        const response = await fetch(url.toString(), {
+          method: 'GET',
+          headers: {
+            ...(this.cloudflareConfig.apiKey && {
+              'Authorization': `Bearer ${this.cloudflareConfig.apiKey}`,
+            }),
+          },
+        });
+
+        if (!response.ok) {
+          this.handleHttpError(response);
+        }
+
+        const result = await response.json();
+        return result.data as CloudStorageData;
+      });
+    }, '从 Cloudflare KV 加载失败');
+  }
+
+  /**
+   * 删除 Cloudflare KV 中的数据
+   */
+  async delete(key: string): Promise<StorageResult<void>> {
+    return this.wrapOperation(async () => {
+      await this.withRetry(async () => {
+        const url = new URL(`${this.cloudflareConfig.endpoint}/delete`);
+        url.searchParams.set('key', key);
+        if (this.cloudflareConfig.namespaceId) {
+          url.searchParams.set('namespaceId', this.cloudflareConfig.namespaceId);
+        }
+
+        const response = await fetch(url.toString(), {
+          method: 'DELETE',
+          headers: {
+            ...(this.cloudflareConfig.apiKey && {
+              'Authorization': `Bearer ${this.cloudflareConfig.apiKey}`,
+            }),
+          },
+        });
+
+        if (!response.ok) {
+          this.handleHttpError(response);
+        }
+      });
+    }, '删除 Cloudflare KV 数据失败');
+  }
+
+  /**
+   * 列出 Cloudflare KV 中的所有键
+   */
+  async list(): Promise<StorageResult<string[]>> {
+    return this.wrapOperation(async () => {
+      return await this.withRetry(async () => {
+        const url = new URL(`${this.cloudflareConfig.endpoint}/list`);
+        if (this.cloudflareConfig.namespaceId) {
+          url.searchParams.set('namespaceId', this.cloudflareConfig.namespaceId);
+        }
+
+        const response = await fetch(url.toString(), {
+          method: 'GET',
+          headers: {
+            ...(this.cloudflareConfig.apiKey && {
+              'Authorization': `Bearer ${this.cloudflareConfig.apiKey}`,
+            }),
+          },
+        });
+
+        if (!response.ok) {
+          this.handleHttpError(response);
+        }
+
+        const result = await response.json();
+        return result.keys as string[];
+      });
+    }, '列出 Cloudflare KV 键失败');
+  }
+
+  /**
+   * 测试 Cloudflare KV 连接
+   */
+  async testConnection(): Promise<StorageResult<void>> {
+    return this.wrapOperation(async () => {
+      await this.withRetry(async () => {
+        const response = await fetch(`${this.cloudflareConfig.endpoint}/health`, {
+          method: 'GET',
+          headers: {
+            ...(this.cloudflareConfig.apiKey && {
+              'Authorization': `Bearer ${this.cloudflareConfig.apiKey}`,
+            }),
+          },
+        });
+
+        if (!response.ok) {
+          this.handleHttpError(response);
+        }
+      });
+    }, '连接 Cloudflare KV 失败');
+  }
+}
