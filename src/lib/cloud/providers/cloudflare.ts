@@ -4,6 +4,7 @@ import {
   CloudStorageData,
   StorageResult,
   CloudflareConfig,
+  VersionHistoryItem,
 } from '../types';
 
 /**
@@ -24,7 +25,7 @@ export class CloudflareStorageProvider extends BaseStorageProvider {
   /**
    * 保存数据到 Cloudflare KV
    */
-  async save(key: string, data: CloudStorageData): Promise<StorageResult<void>> {
+  async save(key: string, data: CloudStorageData, comment?: string): Promise<StorageResult<void>> {
     return this.wrapOperation(async () => {
       await this.withRetry(async () => {
         const url = `${this.cloudflareConfig.endpoint}/save`;
@@ -41,6 +42,7 @@ export class CloudflareStorageProvider extends BaseStorageProvider {
           body: JSON.stringify({
             key,
             data,
+            comment,
             namespaceId: this.cloudflareConfig.namespaceId,
           }),
         });
@@ -61,7 +63,7 @@ export class CloudflareStorageProvider extends BaseStorageProvider {
    */
   async load(key: string): Promise<StorageResult<CloudStorageData>> {
     return this.wrapOperation(async () => {
-      return await this.withRetry(async () => {
+      const result = await this.withRetry(async () => {
         const url = new URL(`${this.cloudflareConfig.endpoint}/load`);
         url.searchParams.set('key', key);
         if (this.cloudflareConfig.namespaceId) {
@@ -81,10 +83,76 @@ export class CloudflareStorageProvider extends BaseStorageProvider {
           this.handleHttpError(response);
         }
 
-        const result = await response.json();
-        return result.data as CloudStorageData;
+        const data = await response.json();
+        return data.data as CloudStorageData;
       });
+      return result;
     }, '从 Cloudflare KV 加载失败');
+  }
+
+  /**
+   * 加载指定版本的数据
+   */
+  async loadVersion(key: string, versionId: string): Promise<StorageResult<CloudStorageData>> {
+    return this.wrapOperation(async () => {
+      const result = await this.withRetry(async () => {
+        const url = new URL(`${this.cloudflareConfig.endpoint}/load-version`);
+        url.searchParams.set('key', key);
+        url.searchParams.set('versionId', versionId);
+        if (this.cloudflareConfig.namespaceId) {
+          url.searchParams.set('namespaceId', this.cloudflareConfig.namespaceId);
+        }
+
+        const response = await fetch(url.toString(), {
+          method: 'GET',
+          headers: {
+            ...(this.cloudflareConfig.apiKey && {
+              'Authorization': `Bearer ${this.cloudflareConfig.apiKey}`,
+            }),
+          },
+        });
+
+        if (!response.ok) {
+          this.handleHttpError(response);
+        }
+
+        const data = await response.json();
+        return data.data as CloudStorageData;
+      });
+      return result;
+    }, '加载指定版本失败');
+  }
+
+  /**
+   * 获取版本历史列表
+   */
+  async getVersions(key: string): Promise<StorageResult<VersionHistoryItem[]>> {
+    return this.wrapOperation(async () => {
+      const result = await this.withRetry(async () => {
+        const url = new URL(`${this.cloudflareConfig.endpoint}/versions`);
+        url.searchParams.set('key', key);
+        if (this.cloudflareConfig.namespaceId) {
+          url.searchParams.set('namespaceId', this.cloudflareConfig.namespaceId);
+        }
+
+        const response = await fetch(url.toString(), {
+          method: 'GET',
+          headers: {
+            ...(this.cloudflareConfig.apiKey && {
+              'Authorization': `Bearer ${this.cloudflareConfig.apiKey}`,
+            }),
+          },
+        });
+
+        if (!response.ok) {
+          this.handleHttpError(response);
+        }
+
+        const data = await response.json();
+        return data.versions as VersionHistoryItem[];
+      });
+      return result;
+    }, '获取版本历史失败');
   }
 
   /**

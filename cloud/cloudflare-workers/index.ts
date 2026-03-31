@@ -25,7 +25,7 @@ declare global {
 
 export interface Env {
   FORMULA_DATA: KVNamespace;
-  API_KEY?: string; // 可选的 API 密钥用于身份验证
+  API_KEY?: string;
 }
 
 // CORS 配置
@@ -35,9 +35,12 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'Content-Type, Authorization',
 };
 
+// 版本历史配置
+const VERSIONS_PREFIX = 'versions:';
+const MAX_VERSIONS = 100; // 最多保留100个版本
+
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
-    // 处理 CORS 预检请求
     if (request.method === 'OPTIONS') {
       return new Response(null, { headers: corsHeaders });
     }
@@ -46,12 +49,10 @@ export default {
     const path = url.pathname;
 
     try {
-      // 健康检查
       if (path === '/health') {
         return jsonResponse({ status: 'ok', timestamp: Date.now() });
       }
 
-      // 验证 API Key（如果配置了）
       if (env.API_KEY) {
         const authHeader = request.headers.get('Authorization');
         if (!authHeader || !authHeader.startsWith('Bearer ') || authHeader.slice(7) !== env.API_KEY) {
@@ -59,7 +60,6 @@ export default {
         }
       }
 
-      // 路由处理
       switch (path) {
         case '/save':
           return handleSave(request, env);
@@ -69,6 +69,10 @@ export default {
           return handleDelete(url, env);
         case '/list':
           return handleList(env);
+        case '/versions':
+          return handleGetVersions(url, env);
+        case '/load-version':
+          return handleLoadVersion(url, env);
         default:
           return errorResponse('Not Found', 404);
       }
@@ -83,7 +87,7 @@ export default {
 };
 
 /**
- * 保存数据到 KV
+ * 保存数据到 KV，同时创建版本历史
  */
 async function handleSave(request: Request, env: Env): Promise<Response> {
   if (request.method !== 'POST') {
@@ -91,24 +95,63 @@ async function handleSave(request: Request, env: Env): Promise<Response> {
   }
 
   try {
-    const body = await request.json() as { key: string; data: unknown };
-    const { key, data } = body;
+    const body = await request.json() as { key: string; data: unknown; comment?: string };
+    const { key, data, comment } = body;
 
     if (!key) {
       return errorResponse('Missing key', 400);
     }
 
-    // 存储数据，添加时间戳
+    const timestamp = Date.now();
+    const versionId = `${timestamp}`;
+    
+    // 存储当前数据
     const value = JSON.stringify({
       data,
       savedAt: new Date().toISOString(),
+      versionId,
+      comment: comment || '',
     });
 
     await env.FORMULA_DATA.put(key, value);
 
-    return jsonResponse({ success: true, message: 'Data saved successfully' });
+    // 保存版本历史
+    const versionKey = `${VERSIONS_PREFIX}${key}:${versionId}`;
+    await env.FORMULA_DATA.put(versionKey, value);
+
+    // 清理旧版本
+    await cleanupOldVersions(key, env);
+
+    return jsonResponse({ 
+      success: true, 
+      message: 'Data saved successfully',
+      versionId,
+      timestamp,
+    });
   } catch (error) {
     return errorResponse('Invalid JSON', 400);
+  }
+}
+
+/**
+ * 清理旧版本，只保留最新的 MAX_VERSIONS 个
+ */
+async function cleanupOldVersions(key: string, env: Env): Promise<void> {
+  const prefix = `${VERSIONS_PREFIX}${key}:`;
+  const list = await env.FORMULA_DATA.list({ prefix });
+  
+  if (list.keys.length > MAX_VERSIONS) {
+    // 按名称排序（时间戳），删除旧的
+    const sortedKeys = list.keys.sort((a, b) => {
+      const timeA = parseInt(a.name.split(':').pop() || '0');
+      const timeB = parseInt(b.name.split(':').pop() || '0');
+      return timeA - timeB;
+    });
+    
+    const toDelete = sortedKeys.slice(0, sortedKeys.length - MAX_VERSIONS);
+    for (const key of toDelete) {
+      await env.FORMULA_DATA.delete(key.name);
+    }
   }
 }
 
@@ -130,10 +173,88 @@ async function handleLoad(url: URL, env: Env): Promise<Response> {
 
   try {
     const parsed = JSON.parse(value);
-    return jsonResponse({ success: true, data: parsed.data });
+    return jsonResponse({ 
+      success: true, 
+      data: parsed.data,
+      versionId: parsed.versionId,
+      savedAt: parsed.savedAt,
+      comment: parsed.comment,
+    });
   } catch {
-    // 兼容旧格式（直接存储的数据）
     return jsonResponse({ success: true, data: JSON.parse(value) });
+  }
+}
+
+/**
+ * 获取版本历史列表
+ */
+async function handleGetVersions(url: URL, env: Env): Promise<Response> {
+  const key = url.searchParams.get('key');
+
+  if (!key) {
+    return errorResponse('Missing key', 400);
+  }
+
+  const prefix = `${VERSIONS_PREFIX}${key}:`;
+  const list = await env.FORMULA_DATA.list({ prefix });
+  
+  const versions = await Promise.all(
+    list.keys.map(async (k) => {
+      const value = await env.FORMULA_DATA.get(k.name);
+      if (!value) return null;
+      
+      try {
+        const parsed = JSON.parse(value);
+        return {
+          versionId: parsed.versionId,
+          savedAt: parsed.savedAt,
+          comment: parsed.comment || '',
+        };
+      } catch {
+        return null;
+      }
+    })
+  );
+
+  const validVersions = versions
+    .filter((v): v is NonNullable<typeof v> => v !== null)
+    .sort((a, b) => new Date(b.savedAt).getTime() - new Date(a.savedAt).getTime());
+
+  return jsonResponse({ 
+    success: true, 
+    versions: validVersions,
+  });
+}
+
+/**
+ * 加载指定版本的数据
+ */
+async function handleLoadVersion(url: URL, env: Env): Promise<Response> {
+  const key = url.searchParams.get('key');
+  const versionId = url.searchParams.get('versionId');
+
+  if (!key || !versionId) {
+    return errorResponse('Missing key or versionId', 400);
+  }
+
+  const versionKey = `${VERSIONS_PREFIX}${key}:${versionId}`;
+  const value = await env.FORMULA_DATA.get(versionKey);
+
+  if (value === null) {
+    return errorResponse('Version not found', 404);
+  }
+
+  try {
+    const parsed = JSON.parse(value);
+    return jsonResponse({ 
+      success: true, 
+      data: parsed.data,
+      versionId: parsed.versionId,
+      savedAt: parsed.savedAt,
+      comment: parsed.comment,
+    });
+  } catch {
+    return errorResponse('Invalid version data', 500);
   }
 }
 
@@ -149,6 +270,13 @@ async function handleDelete(url: URL, env: Env): Promise<Response> {
 
   await env.FORMULA_DATA.delete(key);
 
+  // 同时删除所有版本历史
+  const prefix = `${VERSIONS_PREFIX}${key}:`;
+  const list = await env.FORMULA_DATA.list({ prefix });
+  for (const k of list.keys) {
+    await env.FORMULA_DATA.delete(k.name);
+  }
+
   return jsonResponse({ success: true, message: 'Data deleted successfully' });
 }
 
@@ -157,7 +285,9 @@ async function handleDelete(url: URL, env: Env): Promise<Response> {
  */
 async function handleList(env: Env): Promise<Response> {
   const list = await env.FORMULA_DATA.list();
-  const keys = list.keys.map((k: { name: string }) => k.name);
+  const keys = list.keys
+    .filter((k) => !k.name.startsWith(VERSIONS_PREFIX))
+    .map((k) => k.name);
 
   return jsonResponse({ success: true, keys });
 }

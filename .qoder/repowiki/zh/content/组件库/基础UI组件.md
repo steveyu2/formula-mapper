@@ -6,14 +6,22 @@
 - [dialog.tsx](file://src/components/ui/dialog.tsx)
 - [dropdown-menu.tsx](file://src/components/ui/dropdown-menu.tsx)
 - [input.tsx](file://src/components/ui/input.tsx)
+- [select.tsx](file://src/components/ui/select.tsx)
+- [sonner.tsx](file://src/components/ui/sonner.tsx)
 - [utils.ts](file://src/lib/utils.ts)
 - [tailwind.config.js](file://tailwind.config.js)
 - [globals.css](file://src/app/globals.css)
-- [ConfirmDialog.tsx](file://src/components/ConfirmDialog.tsx)
+- [layout.tsx](file://src/app/layout.tsx)
 - [FormulaReferenceSelector.tsx](file://src/components/FormulaReferenceSelector.tsx)
-- [FormulaReferenceModal.tsx](file://src/components/FormulaReferenceModal.tsx)
 - [package.json](file://package.json)
 </cite>
+
+## 更新摘要
+**变更内容**
+- 新增Select组件，提供现代化的选择器功能
+- 新增Sonner通知系统，提升用户交互体验
+- 更新组件使用示例，展示Select组件在公式引用选择中的应用
+- 扩展依赖分析，包含新增的Radix UI Select和Sonner依赖
 
 ## 目录
 1. [简介](#简介)
@@ -28,23 +36,26 @@
 
 ## 简介
 
-本项目是一个公式变量映射与可视化工具，提供了四个基础UI组件：Button（按钮）、Dialog（对话框）、DropdownMenu（下拉菜单）和Input（输入框）。这些组件基于Radix UI构建，采用Tailwind CSS进行样式定制，并通过class-variance-authority实现变体系统。
+本项目是一个公式变量映射与可视化工具，提供了六个基础UI组件：Button（按钮）、Dialog（对话框）、DropdownMenu（下拉菜单）、Input（输入框）、Select（选择器）和Sonner（通知系统）。这些组件基于Radix UI构建，采用Tailwind CSS进行样式定制，并通过class-variance-authority实现变体系统。
 
 组件设计理念：
 - **可访问性优先**：完全基于语义化的HTML元素，支持键盘导航和屏幕阅读器
 - **主题一致性**：统一的颜色系统和间距规范
 - **响应式设计**：适配不同屏幕尺寸
 - **可扩展性**：支持自定义样式和变体
+- **现代化体验**：提供现代化的选择器和通知系统
 
 ## 项目结构
 
-项目采用Next.js框架，UI组件位于`src/components/ui/`目录下，样式配置在根目录配置文件中。
+项目采用Next.js框架，UI组件位于`src/components/ui/`目录下，样式配置在根目录配置文件中。新增的Select组件和Sonner通知系统为项目提供了更丰富的用户交互能力。
 
 ```mermaid
 graph TB
 subgraph "组件层"
 UI[UI组件]
 Utils[工具函数]
+Select[Select组件]
+Sonner[通知系统]
 end
 subgraph "样式层"
 Tailwind[Tailwind CSS]
@@ -59,19 +70,16 @@ Utils --> Tailwind
 Tailwind --> Theme
 UI --> App
 Components --> UI
+Select --> Sonner
 ```
 
 **图表来源**
-- [button.tsx:1-58](file://src/components/ui/button.tsx#L1-L58)
-- [dialog.tsx:1-123](file://src/components/ui/dialog.tsx#L1-L123)
-- [dropdown-menu.tsx:1-202](file://src/components/ui/dropdown-menu.tsx#L1-L202)
-- [input.tsx:1-26](file://src/components/ui/input.tsx#L1-L26)
+- [select.tsx:1-161](file://src/components/ui/select.tsx#L1-L161)
+- [sonner.tsx:1-34](file://src/components/ui/sonner.tsx#L1-L34)
 
 **章节来源**
-- [button.tsx:1-58](file://src/components/ui/button.tsx#L1-L58)
-- [dialog.tsx:1-123](file://src/components/ui/dialog.tsx#L1-L123)
-- [dropdown-menu.tsx:1-202](file://src/components/ui/dropdown-menu.tsx#L1-L202)
-- [input.tsx:1-26](file://src/components/ui/input.tsx#L1-L26)
+- [select.tsx:1-161](file://src/components/ui/select.tsx#L1-L161)
+- [sonner.tsx:1-34](file://src/components/ui/sonner.tsx#L1-L34)
 
 ## 核心组件
 
@@ -83,6 +91,8 @@ Components --> UI
 | Dialog | 完整的对话框解决方案，支持模态和非模态 | 确认对话框、信息展示、设置面板 |
 | DropdownMenu | 复杂的下拉菜单系统，支持嵌套和分组 | 菜单导航、设置选项、操作选择 |
 | Input | 基础输入控件，支持类型和状态管理 | 文本输入、表单字段、搜索框 |
+| Select | 现代化选择器，支持分组和滚动 | 下拉选择、公式引用、选项配置 |
+| Sonner | 现代化通知系统，支持多种通知类型 | 错误提示、成功反馈、信息通知 |
 
 ### 设计系统
 
@@ -91,6 +101,7 @@ Components --> UI
 - **间距规范**：统一的边距和内边距标准
 - **圆角半径**：一致的边角圆润度
 - **动画效果**：平滑的过渡和状态变化
+- **一致性**：所有组件遵循相同的交互模式和视觉语言
 
 **章节来源**
 - [globals.css:1-60](file://src/app/globals.css#L1-L60)
@@ -105,11 +116,14 @@ Button[Button组件]
 Dialog[Dialog组件]
 Dropdown[DropdownMenu组件]
 Input[Input组件]
+Select[Select组件]
+Sonner[Sonner组件]
 end
 subgraph "基础依赖"
 Radix[Radix UI]
 CVa[Class Variance Authority]
 Tailwind[Tailwind CSS]
+SonnerLib[Sonner Library]
 end
 subgraph "工具函数"
 CN[cn函数]
@@ -119,19 +133,22 @@ Button --> Radix
 Dialog --> Radix
 Dropdown --> Radix
 Input --> Tailwind
+Select --> Radix
+Select --> Tailwind
+Sonner --> SonnerLib
 Button --> CVa
 Button --> CN
 Dialog --> CN
 Dropdown --> CN
 Input --> CN
+Select --> CN
+Sonner --> CN
 CN --> Utils
 ```
 
 **图表来源**
-- [button.tsx:2-5](file://src/components/ui/button.tsx#L2-L5)
-- [dialog.tsx:3-7](file://src/components/ui/dialog.tsx#L3-L7)
-- [dropdown-menu.tsx:3-7](file://src/components/ui/dropdown-menu.tsx#L3-L7)
-- [input.tsx:3](file://src/components/ui/input.tsx#L3)
+- [select.tsx:3-7](file://src/components/ui/select.tsx#L3-L7)
+- [sonner.tsx:3](file://src/components/ui/sonner.tsx#L3)
 - [utils.ts:4-6](file://src/lib/utils.ts#L4-L6)
 
 ## 详细组件分析
@@ -450,6 +467,190 @@ Input组件使用Tailwind CSS类名组合：
 **章节来源**
 - [input.tsx:1-26](file://src/components/ui/input.tsx#L1-L26)
 
+### Select组件
+
+Select组件是新增的现代化选择器组件，基于Radix UI Select构建，提供了丰富的选择功能。
+
+#### 设计理念
+
+Select组件提供了完整的下拉选择解决方案，支持分组、滚动和现代化的视觉效果：
+- **分组支持**：支持逻辑分组和标签显示
+- **滚动功能**：内置滚动按钮，支持大量选项
+- **现代化样式**：基于Tailwind CSS的现代化设计
+- **无障碍支持**：完整的键盘导航和屏幕阅读器支持
+
+#### 组件体系
+
+```mermaid
+classDiagram
+class SelectRoot {
++value : string
++onValueChange : function
+}
+class SelectTrigger {
++asChild : boolean
+}
+class SelectPortal {
++container : Element
+}
+class SelectContent {
++position : string
++sideOffset : number
+}
+class SelectGroup {
++asChild : boolean
+}
+class SelectLabel {
++inset : boolean
+}
+class SelectItem {
++disabled : boolean
+}
+class SelectSeparator {
++className : string
+}
+class SelectScrollUpButton {
++className : string
+}
+class SelectScrollDownButton {
++className : string
+}
+class SelectValue {
++placeholder : string
+}
+SelectRoot --> SelectTrigger
+SelectRoot --> SelectPortal
+SelectRoot --> SelectContent
+SelectContent --> SelectGroup
+SelectContent --> SelectLabel
+SelectContent --> SelectItem
+SelectContent --> SelectSeparator
+SelectContent --> SelectScrollUpButton
+SelectContent --> SelectScrollDownButton
+SelectTrigger --> SelectValue
+```
+
+**图表来源**
+- [select.tsx:9-160](file://src/components/ui/select.tsx#L9-L160)
+
+#### 组件功能
+
+1. **分组管理**：支持逻辑分组和标签显示
+2. **滚动支持**：自动显示滚动按钮，处理大量选项
+3. **现代化样式**：基于CSS变量的主题系统
+4. **动画效果**：平滑的展开和收起动画
+5. **无障碍支持**：完整的键盘导航和ARIA标签
+
+#### API参考
+
+| 组件名 | 属性 | 类型 | 描述 |
+|--------|------|------|------|
+| Select | children, value, onValueChange | ReactNode, string, function | 根组件 |
+| SelectTrigger | asChild, children, className | boolean, ReactNode, string | 触发器组件 |
+| SelectContent | className, children, position, sideOffset | string, ReactNode, string, number | 内容容器 |
+| SelectGroup | asChild, children | boolean, ReactNode | 分组容器 |
+| SelectLabel | className, inset, children | string, boolean, ReactNode | 分组标签 |
+| SelectItem | className, disabled, children | string, boolean, ReactNode | 选项项目 |
+| SelectSeparator | className | string | 分隔符 |
+| SelectScrollUpButton | className | string | 向上滚动按钮 |
+| SelectScrollDownButton | className | string | 向下滚动按钮 |
+| SelectValue | className, placeholder, children | string, string, ReactNode | 选中值显示 |
+
+#### 使用示例
+
+```typescript
+// 基础选择器
+<Select value={value} onValueChange={setValue}>
+  <SelectTrigger className="w-full">
+    <SelectValue placeholder="选择选项" />
+  </SelectTrigger>
+  <SelectContent>
+    <SelectItem value="option1">选项1</SelectItem>
+    <SelectItem value="option2">选项2</SelectItem>
+    <SelectItem value="option3">选项3</SelectItem>
+  </SelectContent>
+</Select>
+```
+
+**章节来源**
+- [select.tsx:1-161](file://src/components/ui/select.tsx#L1-L161)
+
+### Sonner通知系统
+
+Sonner通知系统是新增的现代化通知组件，提供了丰富的通知类型和自定义选项。
+
+#### 设计理念
+
+Sonner通知系统提供了现代化的通知体验，支持多种通知类型和丰富的自定义选项：
+- **多种通知类型**：成功、错误、信息、警告等
+- **现代化样式**：基于CSS变量的主题系统
+- **丰富的自定义**：支持自定义样式类名和动画效果
+- **响应式设计**：适配不同屏幕尺寸和位置
+
+#### 通知类型
+
+1. **success**：成功通知，绿色主题
+2. **error**：错误通知，红色主题
+3. **info**：信息通知，蓝色主题
+4. **warning**：警告通知，橙色主题
+5. **default**：默认通知，灰色主题
+
+#### 组件功能
+
+1. **位置控制**：支持多种显示位置（top-center, bottom-right等）
+2. **富文本支持**：支持HTML内容和富文本格式
+3. **自定义样式**：支持自定义类名和样式覆盖
+4. **动画效果**：平滑的进入和退出动画
+5. **响应式布局**：自适应不同屏幕尺寸
+
+#### API参考
+
+| 属性名 | 类型 | 默认值 | 描述 |
+|--------|------|--------|------|
+| position | 'top-left' \| 'top-center' \| 'top-right' \| 'bottom-left' \| 'bottom-center' \| 'bottom-right' | 'bottom-right' | 通知显示位置 |
+| toastOptions | Object | {} | 通知样式配置 |
+| className | string | 'toaster group' | 自定义容器类名 |
+| richColors | boolean | false | 启用丰富色彩效果 |
+| toastClassName | string | '' | 自定义通知类名 |
+| style | React.CSSProperties | {} | 自定义样式 |
+
+#### 使用示例
+
+```typescript
+// 在应用根组件中引入
+import { Toaster } from '@/components/ui/sonner'
+
+export default function RootLayout({ children }) {
+  return (
+    <html>
+      <body>
+        {children}
+        <Toaster position="top-center" richColors />
+      </body>
+    </html>
+  )
+}
+
+// 在组件中使用
+import { toast } from 'sonner'
+
+// 成功通知
+toast.success('操作成功')
+
+// 错误通知
+toast.error('操作失败')
+
+// 自定义通知
+toast.info('这是信息通知', {
+  description: '详细描述信息',
+  duration: 3000,
+})
+```
+
+**章节来源**
+- [sonner.tsx:1-34](file://src/components/ui/sonner.tsx#L1-L34)
+- [layout.tsx:19](file://src/app/layout.tsx#L19)
+
 ## 依赖分析
 
 ### 核心依赖关系
@@ -461,6 +662,7 @@ React[React 19.x]
 Radix[Radix UI 1.x]
 Tailwind[Tailwind CSS 3.x]
 CVa[class-variance-authority 0.7.x]
+Sonner[Sonner 2.x]
 end
 subgraph "样式依赖"
 clsx[clsx 2.1.x]
@@ -487,10 +689,17 @@ Dropdown --> merge
 Input[Input组件] --> React
 Input --> clsx
 Input --> merge
+Select[Select组件] --> React
+Select --> Radix
+Select --> clsx
+Select --> merge
+Sonner[Sonner组件] --> Sonner
+Sonner --> clsx
+Sonner --> merge
 ```
 
 **图表来源**
-- [package.json:15-33](file://package.json#L15-L33)
+- [package.json:15-36](file://package.json#L15-L36)
 
 ### 组件间依赖
 
@@ -501,20 +710,21 @@ Utils[cn函数] --> All[所有组件]
 Radix[Radix UI] --> Button
 Radix --> Dialog
 Radix --> Dropdown
+Radix --> Select
 CVa[class-variance-authority] --> Button
 Tailwind[Tailwind CSS] --> All
+SonnerLib[Sonner Library] --> Sonner
 end
 subgraph "业务组件"
-Confirm[ConfirmDialog] --> Button
-Selector[FormulaReferenceSelector] --> Input
+Selector[FormulaReferenceSelector] --> Select
 Modal[FormulaReferenceModal] --> Dialog
+Renderer[FormulaRenderer] --> Tooltip
 end
 ```
 
 **图表来源**
 - [utils.ts:4-6](file://src/lib/utils.ts#L4-L6)
-- [ConfirmDialog.tsx:3](file://src/components/ConfirmDialog.tsx#L3)
-- [FormulaReferenceSelector.tsx:68](file://src/components/FormulaReferenceSelector.tsx#L68)
+- [FormulaReferenceSelector.tsx:5-12](file://src/components/FormulaReferenceSelector.tsx#L5-L12)
 
 **章节来源**
 - [package.json:15-48](file://package.json#L15-L48)
@@ -527,6 +737,8 @@ end
 2. **内存管理**：组件使用forwardRef减少不必要的重新渲染
 3. **样式优化**：使用Tailwind CSS的原子化类名，避免重复样式计算
 4. **事件处理**：合理使用事件委托和防抖机制
+5. **Select组件优化**：使用Portal模式和虚拟滚动处理大量选项
+6. **通知系统优化**：Sonner使用高效的动画和内存管理
 
 ### 最佳实践
 
@@ -534,6 +746,8 @@ end
 - **合理使用变体**：不要过度使用复杂的变体组合
 - **性能监控**：使用React DevTools监控组件渲染性能
 - **内存泄漏防护**：及时清理事件监听器和定时器
+- **Select组件使用**：对于大量选项使用虚拟滚动和分组管理
+- **通知系统使用**：合理控制通知数量和持续时间
 
 ## 故障排除指南
 
@@ -547,6 +761,7 @@ end
 - 确保Tailwind CSS已正确配置
 - 检查CSS变量是否正确设置
 - 验证cn函数的类名合并逻辑
+- 确认Radix UI和Sonner的样式依赖已正确安装
 
 #### 2. 无障碍功能问题
 
@@ -556,6 +771,7 @@ end
 - 确保提供适当的aria-label属性
 - 检查tabIndex和键盘导航
 - 验证焦点管理逻辑
+- 为Select组件提供适当的ARIA标签
 
 #### 3. 响应式布局问题
 
@@ -565,6 +781,27 @@ end
 - 检查断点设置
 - 验证触摸交互
 - 测试不同屏幕尺寸
+- 确保Select组件的滚动功能正常工作
+
+#### 4. Select组件问题
+
+**症状**：选择器无法正常显示或选择
+
+**解决方案**：
+- 确保Select组件的子组件结构正确
+- 检查value和onValueChange属性绑定
+- 验证Portal容器的正确性
+- 确认分组和选项的正确嵌套
+
+#### 5. 通知系统问题
+
+**症状**：通知无法显示或样式异常
+
+**解决方案**：
+- 确保Toaster组件在应用根组件中正确引入
+- 检查position和richColors属性设置
+- 验证CSS类名的正确性
+- 确认Sonner库版本兼容性
 
 **章节来源**
 - [globals.css:29-49](file://src/app/globals.css#L29-L49)
@@ -578,11 +815,17 @@ end
 2. **设计一致**：统一的样式系统和交互模式
 3. **可扩展性强**：灵活的变体系统和主题支持
 4. **可访问性完善**：完整的无障碍功能支持
+5. **现代化体验**：新增的Select组件和Sonner通知系统提升了用户体验
 
 组件系统为公式变量映射与可视化工具提供了坚实的基础，支持复杂公式的编辑、展示和管理需求。通过合理的组件组合和样式定制，可以构建出专业级的用户体验。
+
+新增的Select组件和Sonner通知系统进一步增强了项目的现代化程度：
+- **Select组件**：提供了专业的选择器功能，支持分组、滚动和现代化样式
+- **Sonner通知系统**：提供了丰富的通知类型和自定义选项，提升了用户反馈体验
 
 建议在实际使用中：
 - 严格遵循组件的API规范
 - 合理使用变体和尺寸选项
 - 注重可访问性和响应式设计
 - 建立完善的组件测试体系
+- 充分利用新增的Select和通知系统功能

@@ -5,6 +5,7 @@ import {
   CloudStorageData,
   StorageError,
   StorageConfig,
+  VersionHistoryItem,
 } from '../types';
 
 /**
@@ -24,8 +25,10 @@ export abstract class BaseStorageProvider implements CloudStorageProvider {
   /**
    * 子类必须实现的抽象方法
    */
-  abstract save(key: string, data: CloudStorageData): Promise<StorageResult<void>>;
+  abstract save(key: string, data: CloudStorageData, comment?: string): Promise<StorageResult<void>>;
   abstract load(key: string): Promise<StorageResult<CloudStorageData>>;
+  abstract loadVersion(key: string, versionId: string): Promise<StorageResult<CloudStorageData>>;
+  abstract getVersions(key: string): Promise<StorageResult<VersionHistoryItem[]>>;
   abstract delete(key: string): Promise<StorageResult<void>>;
   abstract list(): Promise<StorageResult<string[]>>;
   abstract testConnection(): Promise<StorageResult<void>>;

@@ -40,12 +40,24 @@ export interface CloudStorageData {
 }
 
 /**
+ * 版本历史项
+ */
+export interface VersionHistoryItem {
+  versionId: string;
+  savedAt: string;
+  comment?: string;
+}
+
+/**
  * 存储操作结果
  */
 export interface StorageResult<T = unknown> {
   success: boolean;
   data?: T;
   error?: string;
+  versionId?: string;
+  savedAt?: string;
+  comment?: string;
 }
 
 /**
@@ -67,14 +79,28 @@ export interface CloudStorageProvider {
    * 保存数据到云端
    * @param key 数据键名
    * @param data 要保存的数据
+   * @param comment 版本备注
    */
-  save(key: string, data: CloudStorageData): Promise<StorageResult<void>>;
+  save(key: string, data: CloudStorageData, comment?: string): Promise<StorageResult<void>>;
 
   /**
    * 从云端加载数据
    * @param key 数据键名
    */
   load(key: string): Promise<StorageResult<CloudStorageData>>;
+
+  /**
+   * 加载指定版本的数据
+   * @param key 数据键名
+   * @param versionId 版本ID
+   */
+  loadVersion(key: string, versionId: string): Promise<StorageResult<CloudStorageData>>;
+
+  /**
+   * 获取版本历史列表
+   * @param key 数据键名
+   */
+  getVersions(key: string): Promise<StorageResult<VersionHistoryItem[]>>;
 
   /**
    * 删除云端数据
