@@ -17,6 +17,7 @@ Formula Mapper is a powerful and intuitive tool designed to help users map, visu
 - **🔗 Sub-formulas & References**: Support nesting and referencing other formulas within a formula, enabling modularity and reuse.
 - **🚀 URL Sharing**: Share and locate specific formulas with a simple URL (`?formula=...`).
 - **💾 Local Persistence**: Automatically save sidebar state and user selections using LocalStorage for an enhanced experience.
+- **☁️ Cloud Sync**: Optional sync to Cloudflare KV with version history. [Setup Guide](./docs/CLOUD_SYNC.md)
 - **🔍 Quick Search**: Real-time search across all formulas to quickly find what you need.
 - **🧭 Cascading Selector**: Provides a cascading group selector for easy navigation between different groups.
 
