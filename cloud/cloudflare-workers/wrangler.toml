@@ -10,9 +10,3 @@ id = "9b3e867f8ed64427b03d4a48cf058d67"
 # 可选：环境变量
 [vars]
 # API_KEY = "your-secret-api-key"
-
-# 构建设置
-[build]
-command = "npm run build"
-cwd = "."
-watch_paths = ["src/**/*.ts"]
