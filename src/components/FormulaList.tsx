@@ -251,6 +251,11 @@ function FormulaItem({
           <p className="text-sm text-gray-500 mt-1 font-mono">
             {formula.englishFormula}
           </p>
+          {formula.description && (
+            <p className="text-xs text-gray-400 mt-2">
+              {formula.description}
+            </p>
+          )}
         </div>
         <div className="flex items-center gap-1">
           <button

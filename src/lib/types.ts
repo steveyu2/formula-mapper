@@ -29,6 +29,7 @@ export interface Formula {
   name: string;
   englishFormula: string;
   chineseFormula: string;
+  description?: string; // 公式说明
   createdAt: number;
   variableFormulaMapping?: Record<string, string>; // 变量映射到公式ID的映射
   subFormulas?: SubFormula[]; // 子公式列表

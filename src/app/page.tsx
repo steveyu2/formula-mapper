@@ -87,6 +87,7 @@ function HomeContent() {
     name: string;
     englishFormula: string;
     chineseFormula: string;
+    description: string;
     variableFormulaMapping: Record<string, string>;
     subFormulas: SubFormula[];
     groupId: string | null;
@@ -95,6 +96,7 @@ function HomeContent() {
     name: '',
     englishFormula: '',
     chineseFormula: '',
+    description: '',
     variableFormulaMapping: {},
     subFormulas: [],
     groupId: null,
@@ -246,6 +248,7 @@ function HomeContent() {
       formulaForm.englishFormula.trim(),
       formulaForm.chineseFormula.trim()
     );
+    newFormula.description = formulaForm.description.trim();
     newFormula.variableFormulaMapping = formulaForm.variableFormulaMapping;
     newFormula.subFormulas = formulaForm.subFormulas;
     const updatedGroups = groups.map((g) => {
@@ -256,7 +259,7 @@ function HomeContent() {
     });
     setGroups(updatedGroups);
     saveData(updatedGroups);
-    setFormulaForm({ name: '', englishFormula: '', chineseFormula: '', variableFormulaMapping: {}, subFormulas: [], groupId: null, parentGroupId: null });
+    setFormulaForm({ name: '', englishFormula: '', chineseFormula: '', description: '', variableFormulaMapping: {}, subFormulas: [], groupId: null, parentGroupId: null });
     setIsCreateFormulaModalOpen(false);
   };
 
@@ -291,6 +294,7 @@ function HomeContent() {
         name: formula.name,
         englishFormula: formula.englishFormula,
         chineseFormula: formula.chineseFormula,
+        description: formula.description || '',
         variableFormulaMapping: formula.variableFormulaMapping || {},
         subFormulas: formula.subFormulas || [],
         groupId: currentGroup.id,
@@ -301,6 +305,7 @@ function HomeContent() {
         name: formula.name,
         englishFormula: formula.englishFormula,
         chineseFormula: formula.chineseFormula,
+        description: formula.description || '',
         variableFormulaMapping: formula.variableFormulaMapping || {},
         subFormulas: formula.subFormulas || [],
         groupId: null,
@@ -344,6 +349,7 @@ function HomeContent() {
       name: formulaForm.name.trim(),
       englishFormula: formulaForm.englishFormula.trim(),
       chineseFormula: formulaForm.chineseFormula.trim(),
+      description: formulaForm.description.trim(),
       variableFormulaMapping: formulaForm.variableFormulaMapping || {},
       subFormulas: formulaForm.subFormulas,
     };
@@ -377,7 +383,7 @@ function HomeContent() {
     setGroups(updatedGroups);
     saveData(updatedGroups);
     setEditingFormula(null);
-    setFormulaForm({ name: '', englishFormula: '', chineseFormula: '', variableFormulaMapping: {}, subFormulas: [], groupId: null, parentGroupId: null });
+    setFormulaForm({ name: '', englishFormula: '', chineseFormula: '', description: '', variableFormulaMapping: {}, subFormulas: [], groupId: null, parentGroupId: null });
     setIsCreateFormulaModalOpen(false);
   };
 
@@ -476,6 +482,7 @@ function HomeContent() {
       name: '',
       englishFormula: '',
       chineseFormula: '',
+      description: '',
       variableFormulaMapping: {},
       subFormulas: [],
       groupId: selectedGroupId,
@@ -714,7 +721,7 @@ function HomeContent() {
           <div className="absolute inset-0 bg-black/30" onClick={() => {
             setIsCreateFormulaModalOpen(false);
             setEditingFormula(null);
-            setFormulaForm({ name: '', englishFormula: '', chineseFormula: '', variableFormulaMapping: {}, subFormulas: [], groupId: null, parentGroupId: null });
+            setFormulaForm({ name: '', englishFormula: '', chineseFormula: '', description: '', variableFormulaMapping: {}, subFormulas: [], groupId: null, parentGroupId: null });
           }} />
           <div className="relative bg-white rounded-xl shadow-xl max-w-2xl w-full my-8">
             <div className="px-6 py-4 border-b flex items-center justify-between">
@@ -725,7 +732,7 @@ function HomeContent() {
                 onClick={() => {
                   setIsCreateFormulaModalOpen(false);
                   setEditingFormula(null);
-                  setFormulaForm({ name: '', englishFormula: '', chineseFormula: '', variableFormulaMapping: {}, subFormulas: [], groupId: null, parentGroupId: null });
+                  setFormulaForm({ name: '', englishFormula: '', chineseFormula: '', description: '', variableFormulaMapping: {}, subFormulas: [], groupId: null, parentGroupId: null });
                 }}
                 className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
               >
@@ -759,10 +766,21 @@ function HomeContent() {
                 <label className="block text-sm font-medium text-gray-700 mb-1.5">中文公式</label>
                 <input
                   type="text"
-                  placeholder="例如：变量1+变量2+变量3*��量4"
+                  placeholder="例如：变量1+变量2+变量3*变量4"
                   value={formulaForm.chineseFormula}
                   onChange={(e) => setFormulaForm({ ...formulaForm, chineseFormula: e.target.value })}
                   className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1.5">说明（可选）</label>
+                <textarea
+                  placeholder="添加公式的详细说明、使用说明或备注..."
+                  value={formulaForm.description}
+                  onChange={(e) => setFormulaForm({ ...formulaForm, description: e.target.value })}
+                  className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
+                  rows={3}
                 />
               </div>
 
@@ -799,7 +817,7 @@ function HomeContent() {
                 onClick={() => {
                   setIsCreateFormulaModalOpen(false);
                   setEditingFormula(null);
-                  setFormulaForm({ name: '', englishFormula: '', chineseFormula: '', variableFormulaMapping: {}, subFormulas: [], groupId: null, parentGroupId: null });
+                  setFormulaForm({ name: '', englishFormula: '', chineseFormula: '', description: '', variableFormulaMapping: {}, subFormulas: [], groupId: null, parentGroupId: null });
                 }}
                 className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
               >
