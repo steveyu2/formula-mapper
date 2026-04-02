@@ -26,6 +26,7 @@ declare global {
 export interface Env {
   FORMULA_DATA: KVNamespace;
   API_KEY?: string;
+  WRITE_PASSWORD?: string; // 写入密码（可选）
 }
 
 // CORS 配置
@@ -58,6 +59,7 @@ export default {
         return jsonResponse({ status: 'ok', timestamp: Date.now() });
       }
 
+      // 验证 API Key（如果配置了）
       if (env.API_KEY) {
         const authHeader = request.headers.get('Authorization');
         if (!authHeader || !authHeader.startsWith('Bearer ') || authHeader.slice(7) !== env.API_KEY) {
@@ -67,10 +69,18 @@ export default {
 
       switch (path) {
         case '/save':
+          // 验证写入密码
+          if (!validateWritePassword(request, env)) {
+            return errorResponse('Invalid write password', 403);
+          }
           return handleSave(request, env);
         case '/load':
           return handleLoad(url, env);
         case '/delete':
+          // 验证写入密码
+          if (!validateWritePassword(request, env)) {
+            return errorResponse('Invalid write password', 403);
+          }
           return handleDelete(url, env);
         case '/list':
           return handleList(env);
@@ -90,6 +100,24 @@ export default {
     }
   },
 };
+
+/**
+ * 验证写入密码
+ */
+function validateWritePassword(request: Request, env: Env): boolean {
+  // 如果没有配置写入密码，则不需要验证
+  if (!env.WRITE_PASSWORD) {
+    return true;
+  }
+
+  // 从请求体中获取密码
+  const authHeader = request.headers.get('X-Write-Password');
+  if (!authHeader || authHeader !== env.WRITE_PASSWORD) {
+    return false;
+  }
+
+  return true;
+}
 
 /**
  * 保存数据到 KV，同时创建版本历史

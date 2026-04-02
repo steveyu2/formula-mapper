@@ -96,6 +96,7 @@ export interface SavedCloudConfig {
   endpoint: string;
   apiKey?: string;
   namespaceId?: string;
+  writePassword?: string; // 写入密码
   // 不保存敏感信息，如需要可以扩展
 }
 

@@ -24,6 +24,7 @@ export interface CloudflareConfig extends StorageConfig {
   type: StorageProviderType.CLOUDFLARE;
   endpoint: string;
   namespaceId?: string;
+  writePassword?: string; // 写入密码（用于保护写入操作）
 }
 
 /**

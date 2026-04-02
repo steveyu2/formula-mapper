@@ -44,6 +44,7 @@ export function CloudSyncModal({ isOpen, onClose, groups, onLoadData }: CloudSyn
   const [endpoint, setEndpoint] = useState('');
   const [apiKey, setApiKey] = useState('');
   const [namespaceId, setNamespaceId] = useState('');
+  const [writePassword, setWritePassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [message, setMessage] = useState('');
   const [messageType, setMessageType] = useState<'success' | 'error'>('success');
@@ -59,6 +60,7 @@ export function CloudSyncModal({ isOpen, onClose, groups, onLoadData }: CloudSyn
         setEndpoint(config.endpoint || '');
         setApiKey(config.apiKey || '');
         setNamespaceId(config.namespaceId || '');
+        setWritePassword((config as any).writePassword || '');
         setHasConfig(true);
         setShowProviderSelector(false);
       } else {
@@ -82,6 +84,7 @@ export function CloudSyncModal({ isOpen, onClose, groups, onLoadData }: CloudSyn
           endpoint: endpoint.trim(),
           apiKey: apiKey.trim() || undefined,
           namespaceId: namespaceId.trim() || undefined,
+          writePassword: writePassword.trim() || undefined,
         };
       default:
         throw new Error(`不支持的存储类型: ${selectedProvider}`);
@@ -92,7 +95,13 @@ export function CloudSyncModal({ isOpen, onClose, groups, onLoadData }: CloudSyn
     const config = getProviderConfig();
     switch (config.type) {
       case StorageProviderType.CLOUDFLARE:
-        return new CloudflareStorageProvider(config);
+        return new CloudflareStorageProvider({
+          type: StorageProviderType.CLOUDFLARE,
+          endpoint: config.endpoint,
+          apiKey: config.apiKey,
+          namespaceId: config.namespaceId,
+          writePassword: (config as any).writePassword,
+        });
       default:
         throw new Error(`不支持的存储类型: ${config.type}`);
     }
@@ -312,6 +321,19 @@ export function CloudSyncModal({ isOpen, onClose, groups, onLoadData }: CloudSyn
               />
             </div>
           )}
+
+          <div className="space-y-2">
+            <label className="text-sm font-medium">写入密码 (可选)</label>
+            <Input
+              type="password"
+              placeholder="用于保护写入操作的密码"
+              value={writePassword}
+              onChange={(e) => setWritePassword(e.target.value)}
+            />
+            <p className="text-xs text-gray-500">
+              设置后，保存到云端和删除操作需要此密码
+            </p>
+          </div>
 
           {message && (
             <div
