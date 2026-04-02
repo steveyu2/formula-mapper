@@ -1,13 +1,12 @@
 /**
- * Cloudflare Workers - Formula Mapper 云存储后端 (D1 Database)
+ * Cloudflare Workers - Formula Mapper 云存储后端
  * 
  * 部署步骤:
  * 1. 安装 Wrangler: npm install -g wrangler
  * 2. 登录: wrangler login
- * 3. 创建 D1 Database: wrangler d1 create formula-mapper-db
- * 4. 更新 wrangler.toml 中的 database_id
- * 5. 执行数据库迁移: wrangler d1 execute formula-mapper-db --file=schema.sql
- * 6. 部署: wrangler deploy
+ * 3. 创建 KV Namespace: wrangler kv:namespace create "FORMULA_DATA"
+ * 4. 更新 wrangler.toml 中的 namespace_id
+ * 5. 部署: wrangler deploy
  */
 
 // D1Database 类型定义
@@ -58,6 +57,7 @@ const corsHeaders = {
 };
 
 // 版本历史配置
+const VERSIONS_PREFIX = 'versions:';
 const MAX_VERSIONS = 100; // 最多保留100个版本
 
 export default {
@@ -77,10 +77,6 @@ export default {
         return jsonResponse({ status: 'ok', timestamp: Date.now() });
       }
 
-      if (path === '/need-password') {
-        return jsonResponse({ needPassword: !!env.WRITE_PASSWORD });
-      }
-
       // 验证 API Key（如果配置了）
       if (env.API_KEY) {
         const authHeader = request.headers.get('Authorization');
@@ -90,6 +86,10 @@ export default {
       }
 
       switch (path) {
+        case '/health':
+          return jsonResponse({ status: 'ok', timestamp: Date.now() });
+        case '/need-password':
+          return jsonResponse({ needPassword: !!env.WRITE_PASSWORD });
         case '/save':
           // 验证写入密码
           if (!validateWritePassword(request, env)) {
@@ -150,12 +150,16 @@ async function handleSave(request: Request, env: Env): Promise<Response> {
   }
 
   try {
+    // 先获取原始文本用于调试
     const rawBody = await request.text();
+    console.log('[handleSave] Raw body:', rawBody.substring(0, 200));
     
+    // 尝试解析 JSON
     let body;
     try {
       body = JSON.parse(rawBody);
     } catch (parseError) {
+      console.error('[handleSave] JSON parse error:', parseError);
       return errorResponse(`JSON parse error: ${parseError instanceof Error ? parseError.message : 'Unknown error'}`, 400);
     }
     
@@ -168,9 +172,10 @@ async function handleSave(request: Request, env: Env): Promise<Response> {
     const timestamp = Date.now();
     const versionId = `${timestamp}`;
     const savedAt = new Date().toISOString();
+    
+    // 存储当前数据
     const value = JSON.stringify(data);
 
-    // 存储当前数据
     await env.DB.prepare(`
       INSERT OR REPLACE INTO formula_data (id, data, saved_at, version_id, comment)
       VALUES (?, ?, ?, ?, ?)
@@ -208,6 +213,7 @@ async function cleanupOldVersions(key: string, env: Env): Promise<void> {
   const count = result?.count || 0;
   
   if (count > MAX_VERSIONS) {
+    // 删除最旧的版本
     await env.DB.prepare(`
       DELETE FROM version_history 
       WHERE data_key = ? 
@@ -263,22 +269,34 @@ async function handleGetVersions(url: URL, env: Env): Promise<Response> {
     return errorResponse('Missing key', 400);
   }
 
-  const results = await env.DB.prepare(`
-    SELECT version_id, saved_at, comment 
-    FROM version_history 
-    WHERE data_key = ? 
-    ORDER BY saved_at DESC
-  `).bind(key).all();
+  const prefix = `${VERSIONS_PREFIX}${key}:`;
+  const list = await env.FORMULA_DATA.list({ prefix });
+  
+  const versions = await Promise.all(
+    list.keys.map(async (k) => {
+      const value = await env.FORMULA_DATA.get(k.name);
+      if (!value) return null;
+      
+      try {
+        const parsed = JSON.parse(value);
+        return {
+          versionId: parsed.versionId,
+          savedAt: parsed.savedAt,
+          comment: parsed.comment || '',
+        };
+      } catch {
+        return null;
+      }
+    })
+  );
 
-  const versions = results.results.map((row: any) => ({
-    versionId: row.version_id,
-    savedAt: row.saved_at,
-    comment: row.comment || '',
-  }));
+  const validVersions = versions
+    .filter((v): v is NonNullable<typeof v> => v !== null)
+    .sort((a, b) => new Date(b.savedAt).getTime() - new Date(a.savedAt).getTime());
 
   return jsonResponse({ 
     success: true, 
-    versions,
+    versions: validVersions,
   });
 }
 
@@ -293,23 +311,20 @@ async function handleLoadVersion(url: URL, env: Env): Promise<Response> {
     return errorResponse('Missing key or versionId', 400);
   }
 
-  const result = await env.DB.prepare(`
-    SELECT data, version_id, saved_at, comment 
-    FROM version_history 
-    WHERE data_key = ? AND version_id = ?
-  `).bind(key, versionId).first();
+  const versionKey = `${VERSIONS_PREFIX}${key}:${versionId}`;
+  const value = await env.FORMULA_DATA.get(versionKey);
 
-  if (!result) {
+  if (value === null) {
     return errorResponse('Version not found', 404);
   }
 
   try {
-    const parsed = result as { data: string; version_id: string; saved_at: string; comment: string };
+    const parsed = JSON.parse(value);
     return jsonResponse({ 
       success: true, 
-      data: JSON.parse(parsed.data),
-      versionId: parsed.version_id,
-      savedAt: parsed.saved_at,
+      data: parsed.data,
+      versionId: parsed.versionId,
+      savedAt: parsed.savedAt,
       comment: parsed.comment,
     });
   } catch {
@@ -318,7 +333,7 @@ async function handleLoadVersion(url: URL, env: Env): Promise<Response> {
 }
 
 /**
- * 从 D1 删除数据
+ * 从 KV 删除数据
  */
 async function handleDelete(url: URL, env: Env): Promise<Response> {
   const key = url.searchParams.get('key');
@@ -327,15 +342,14 @@ async function handleDelete(url: URL, env: Env): Promise<Response> {
     return errorResponse('Missing key', 400);
   }
 
-  // 删除当前数据
-  await env.DB.prepare(`
-    DELETE FROM formula_data WHERE id = ?
-  `).bind(key).run();
+  await env.FORMULA_DATA.delete(key);
 
-  // 删除所有版本历史
-  await env.DB.prepare(`
-    DELETE FROM version_history WHERE data_key = ?
-  `).bind(key).run();
+  // 同时删除所有版本历史
+  const prefix = `${VERSIONS_PREFIX}${key}:`;
+  const list = await env.FORMULA_DATA.list({ prefix });
+  for (const k of list.keys) {
+    await env.FORMULA_DATA.delete(k.name);
+  }
 
   return jsonResponse({ success: true, message: 'Data deleted successfully' });
 }
@@ -344,11 +358,10 @@ async function handleDelete(url: URL, env: Env): Promise<Response> {
  * 列出所有键
  */
 async function handleList(env: Env): Promise<Response> {
-  const results = await env.DB.prepare(`
-    SELECT DISTINCT id FROM formula_data
-  `).all();
-
-  const keys = results.results.map((row: any) => row.id);
+  const list = await env.FORMULA_DATA.list();
+  const keys = list.keys
+    .filter((k) => !k.name.startsWith(VERSIONS_PREFIX))
+    .map((k) => k.name);
 
   return jsonResponse({ success: true, keys });
 }
