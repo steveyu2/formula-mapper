@@ -115,6 +115,9 @@ export function CloudSyncModal({ isOpen, onClose, groups, onLoadData }: CloudSyn
       CloudConfigManager.save(config);
       setHasConfig(true);
       showMessage('配置已保存', 'success');
+      
+      // 通知 CloudSyncButton 刷新配置状态
+      window.dispatchEvent(new Event('cloudConfigChanged'));
     } catch (error) {
       showMessage(error instanceof Error ? error.message : '保存配置失败', 'error');
     }
@@ -213,6 +216,9 @@ export function CloudSyncModal({ isOpen, onClose, groups, onLoadData }: CloudSyn
     setHasConfig(false);
     setShowProviderSelector(true);
     showMessage('配置已清除', 'success');
+    
+    // 通知 CloudSyncButton 刷新配置状态
+    window.dispatchEvent(new Event('cloudConfigChanged'));
   };
 
   const switchProvider = () => {

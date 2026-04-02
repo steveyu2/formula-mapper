@@ -31,13 +31,44 @@ export function CloudSyncButton({
   const [isSaving, setIsSaving] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [showPasswordDialog, setShowPasswordDialog] = useState(false);
+  const [refreshKey, setRefreshKey] = useState(0);
 
-  useEffect(() => {
+  // 读取云端配置
+  const loadConfig = () => {
     const saved = localStorage.getItem('formulaMapper_cloudConfig');
     if (saved) {
       setConfig(JSON.parse(saved));
       setHasConfig(true);
+    } else {
+      setConfig(null);
+      setHasConfig(false);
     }
+  };
+
+  useEffect(() => {
+    loadConfig();
+  }, [refreshKey]);
+
+  // 监听 storage 变化（同一窗口）
+  useEffect(() => {
+    const handleStorageChange = (e: StorageEvent) => {
+      if (e.key === 'formulaMapper_cloudConfig') {
+        loadConfig();
+      }
+    };
+
+    // 监听自定义事件（同窗口）
+    const handleConfigChange = () => {
+      loadConfig();
+    };
+
+    window.addEventListener('storage', handleStorageChange);
+    window.addEventListener('cloudConfigChanged', handleConfigChange);
+    
+    return () => {
+      window.removeEventListener('storage', handleStorageChange);
+      window.removeEventListener('cloudConfigChanged', handleConfigChange);
+    };
   }, []);
 
   const handleSaveToCloud = async (writePassword?: string) => {
