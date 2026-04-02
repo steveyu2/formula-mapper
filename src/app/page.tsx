@@ -148,6 +148,8 @@ function HomeContent() {
     if (cloudLoading) return;
     
     setCloudLoading(true);
+    const startTime = Date.now();
+    
     try {
       // 保存配置到 localStorage
       const cloudConfig = {
@@ -169,6 +171,12 @@ function HomeContent() {
       
       const result = await provider.load('formula-data');
       
+      // 确保 loading 至少显示 1 秒
+      const elapsed = Date.now() - startTime;
+      if (elapsed < 1000) {
+        await new Promise(resolve => setTimeout(resolve, 1000 - elapsed));
+      }
+      
       if (result.success && result.data) {
         setGroups(result.data.groups);
         saveData(result.data.groups);
@@ -183,9 +191,21 @@ function HomeContent() {
         router.push(newUrl, { scroll: false });
       } else {
         toast.error(result.error || '从云端加载数据失败');
+        
+        // 加载失败时也要清理 URL 参数
+        const params = new URLSearchParams(window.location.search);
+        params.delete('cloud');
+        const newUrl = params.toString() ? `${pathname}?${params.toString()}` : pathname;
+        router.push(newUrl, { scroll: false });
       }
     } catch (error) {
       toast.error(error instanceof Error ? error.message : '从云端加载数据失败');
+      
+      // 错误时也要清理 URL 参数
+      const params = new URLSearchParams(window.location.search);
+      params.delete('cloud');
+      const newUrl = params.toString() ? `${pathname}?${params.toString()}` : pathname;
+      router.push(newUrl, { scroll: false });
     } finally {
       setCloudLoading(false);
     }
