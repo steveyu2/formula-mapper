@@ -73,9 +73,25 @@ export function CloudSyncButton({
     }
   };
 
-  const handleSaveWithPassword = () => {
-    // 先显示密码输入对话框
-    setShowPasswordDialog(true);
+  const handleSaveWithPassword = async () => {
+    if (!config) return;
+    
+    try {
+      // 先检查 Worker 是否需要密码
+      const response = await fetch(`${config.endpoint}/need-password`);
+      const result = await response.json();
+      
+      if (result.needPassword) {
+        // 需要密码，弹出输入框
+        setShowPasswordDialog(true);
+      } else {
+        // 不需要密码，直接保存
+        handleSaveToCloud();
+      }
+    } catch (error) {
+      // 如果检测失败，仍然弹出密码框
+      setShowPasswordDialog(true);
+    }
   };
 
   const handlePasswordSubmit = (password: string) => {

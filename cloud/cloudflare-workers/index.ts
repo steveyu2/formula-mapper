@@ -68,6 +68,10 @@ export default {
       }
 
       switch (path) {
+        case '/health':
+          return jsonResponse({ status: 'ok', timestamp: Date.now() });
+        case '/need-password':
+          return jsonResponse({ needPassword: !!env.WRITE_PASSWORD });
         case '/save':
           // 验证写入密码
           if (!validateWritePassword(request, env)) {
