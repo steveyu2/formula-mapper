@@ -50,8 +50,6 @@ export function CloudSyncModal({ isOpen, onClose, groups, onLoadData }: CloudSyn
   const [messageType, setMessageType] = useState<'success' | 'error'>('success');
   const [hasConfig, setHasConfig] = useState(false);
   const [showProviderSelector, setShowProviderSelector] = useState(true);
-  const [showLoadConfirm, setShowLoadConfirm] = useState(false);
-  const [configJustSaved, setConfigJustSaved] = useState(false);
 
   // 加载已保存的配置
   useEffect(() => {
@@ -106,7 +104,7 @@ export function CloudSyncModal({ isOpen, onClose, groups, onLoadData }: CloudSyn
     }
   };
 
-  const saveConfig = async () => {
+  const saveConfig = () => {
     if (!endpoint.trim()) {
       showMessage('请输入服务端点 URL', 'error');
       return;
@@ -116,24 +114,9 @@ export function CloudSyncModal({ isOpen, onClose, groups, onLoadData }: CloudSyn
       const config = getProviderConfig();
       CloudConfigManager.save(config);
       setHasConfig(true);
-      setConfigJustSaved(true);
       showMessage('配置已保存', 'success');
-      
-      // 询问是否加载远程数据
-      setTimeout(() => {
-        setShowLoadConfirm(true);
-      }, 500);
     } catch (error) {
       showMessage(error instanceof Error ? error.message : '保存配置失败', 'error');
-    }
-  };
-
-  const handleLoadConfirm = async (shouldLoad: boolean) => {
-    setShowLoadConfirm(false);
-    setConfigJustSaved(false);
-    
-    if (shouldLoad) {
-      await loadFromCloud();
     }
   };
 
@@ -411,18 +394,6 @@ export function CloudSyncModal({ isOpen, onClose, groups, onLoadData }: CloudSyn
           )}
         </div>
       </DialogContent>
-
-      {/* 保存配置后询问是否加载 */}
-      <ConfirmDialog
-        isOpen={showLoadConfirm}
-        onCancel={() => handleLoadConfirm(false)}
-        onConfirm={() => handleLoadConfirm(true)}
-        title="配置已保存"
-        message="是否立即从云端加载数据？"
-        confirmText="加载云端数据"
-        cancelText="稍后再说"
-        variant="default"
-      />
     </Dialog>
   );
 }

@@ -9,40 +9,9 @@
  * 5. 部署: wrangler deploy
  */
 
-// D1Database 类型定义
-declare global {
-  interface D1Database {
-    prepare(_query: string): D1PreparedStatement;
-    dump(): Promise<ArrayBuffer>;
-    batch<T = unknown>(_statements: D1PreparedStatement[]): Promise<D1Result<T>[]>;
-    exec<T = unknown>(_query: string): Promise<D1Result<T>>;
-  }
-
-  interface D1PreparedStatement {
-    bind(..._values: unknown[]): D1PreparedStatement;
-    first<T = unknown>(_colName?: string): Promise<T | null>;
-    run<T = unknown>(): Promise<D1Result<T>>;
-    all<T = unknown>(): Promise<D1Result<T>>;
-    raw<T = unknown>(): Promise<T[][]>;
-  }
-
-  interface D1Result<T = unknown> {
-    results: T[];
-    success: boolean;
-    meta: {
-      served_by: string;
-      duration: number;
-      changes: number;
-      last_row_id: number;
-      changed_db: boolean;
-      size_after: number;
-    };
-    error?: string;
-  }
-}
-
 export interface Env {
   DB: D1Database;
+  FORMULA_DATA: KVNamespace;
   API_KEY?: string;
   WRITE_PASSWORD?: string; // 写入密码（可选）
 }
