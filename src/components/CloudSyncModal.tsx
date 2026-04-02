@@ -50,6 +50,8 @@ export function CloudSyncModal({ isOpen, onClose, groups, onLoadData }: CloudSyn
   const [messageType, setMessageType] = useState<'success' | 'error'>('success');
   const [hasConfig, setHasConfig] = useState(false);
   const [showProviderSelector, setShowProviderSelector] = useState(true);
+  const [showPasswordDialog, setShowPasswordDialog] = useState(false);
+  const [pendingSaveWithPassword, setPendingSaveWithPassword] = useState<string | null>(null);
 
   // 加载已保存的配置
   useEffect(() => {
@@ -146,7 +148,7 @@ export function CloudSyncModal({ isOpen, onClose, groups, onLoadData }: CloudSyn
     }
   };
 
-  const saveToCloud = async () => {
+  const saveToCloud = async (writePassword?: string) => {
     if (!endpoint.trim()) {
       showMessage('请先输入服务端点 URL', 'error');
       return;
@@ -155,6 +157,12 @@ export function CloudSyncModal({ isOpen, onClose, groups, onLoadData }: CloudSyn
     setIsLoading(true);
     try {
       const provider = createProvider();
+      
+      // 如果有密码，需要设置到 provider
+      if (writePassword) {
+        (provider as any).cloudflareConfig.writePassword = writePassword;
+      }
+      
       const result = await provider.save('formula-data', {
         version: '1.0',
         timestamp: Date.now(),
@@ -170,6 +178,9 @@ export function CloudSyncModal({ isOpen, onClose, groups, onLoadData }: CloudSyn
         CloudConfigManager.save(config);
         setHasConfig(true);
         showMessage('数据已保存到云端', 'success');
+        
+        // 通知 CloudSyncButton 刷新配置状态
+        window.dispatchEvent(new Event('cloudConfigChanged'));
       } else {
         showMessage(result.error || '保存失败', 'error');
       }
@@ -178,6 +189,35 @@ export function CloudSyncModal({ isOpen, onClose, groups, onLoadData }: CloudSyn
     } finally {
       setIsLoading(false);
     }
+  };
+
+  const handleSaveWithPassword = async () => {
+    if (!endpoint.trim()) {
+      showMessage('请先输入服务端点 URL', 'error');
+      return;
+    }
+
+    try {
+      // 先检查 Worker 是否需要密码
+      const response = await fetch(`${endpoint.trim()}/need-password`);
+      const result = await response.json();
+      
+      if (result.needPassword) {
+        // 需要密码，弹出输入框
+        setShowPasswordDialog(true);
+      } else {
+        // 不需要密码，直接保存
+        saveToCloud();
+      }
+    } catch (error) {
+      // 如果检测失败，仍然弹出密码框
+      setShowPasswordDialog(true);
+    }
+  };
+
+  const handlePasswordSubmit = (password: string) => {
+    setShowPasswordDialog(false);
+    saveToCloud(password || undefined);
   };
 
   const loadFromCloud = async () => {
@@ -381,7 +421,7 @@ export function CloudSyncModal({ isOpen, onClose, groups, onLoadData }: CloudSyn
             <div className="border-t pt-4 mt-4">
               <div className="flex gap-2">
                 <Button
-                  onClick={saveToCloud}
+                  onClick={handleSaveWithPassword}
                   disabled={isLoading}
                   className="flex-1"
                 >
@@ -400,6 +440,46 @@ export function CloudSyncModal({ isOpen, onClose, groups, onLoadData }: CloudSyn
           )}
         </div>
       </DialogContent>
+
+      {/* 密码输入对话框 */}
+      {showPasswordDialog && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[200]">
+          <div className="bg-white rounded-2xl shadow-2xl p-6 w-full max-w-md mx-4">
+            <h3 className="text-lg font-semibold mb-4">输入写入密码</h3>
+            <p className="text-sm text-gray-600 mb-4">
+              保存到云端需要输入写入密码
+            </p>
+            <input
+              type="password"
+              placeholder="请输入写入密码"
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 mb-4"
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  handlePasswordSubmit((e.target as HTMLInputElement).value);
+                }
+              }}
+              autoFocus
+            />
+            <div className="flex gap-2">
+              <button
+                onClick={() => setShowPasswordDialog(false)}
+                className="flex-1 px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors"
+              >
+                取消
+              </button>
+              <button
+                onClick={() => {
+                  const input = document.querySelector('input[type="password"]') as HTMLInputElement;
+                  handlePasswordSubmit(input?.value || '');
+                }}
+                className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+              >
+                确认保存
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </Dialog>
   );
 }
