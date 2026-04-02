@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -441,9 +442,9 @@ export function CloudSyncModal({ isOpen, onClose, groups, onLoadData }: CloudSyn
         </div>
       </DialogContent>
 
-      {/* 密码输入对话框 */}
-      {showPasswordDialog && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[200]">
+      {/* 密码输入对话框 - 使用 Portal 渲染到 body 避免被 Dialog 遮罩层阻挡 */}
+      {showPasswordDialog && createPortal(
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[1000]">
           <div className="bg-white rounded-2xl shadow-2xl p-6 w-full max-w-md mx-4">
             <h3 className="text-lg font-semibold mb-4">输入写入密码</h3>
             <p className="text-sm text-gray-600 mb-4">
@@ -478,7 +479,8 @@ export function CloudSyncModal({ isOpen, onClose, groups, onLoadData }: CloudSyn
               </button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </Dialog>
   );
