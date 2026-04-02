@@ -20,11 +20,13 @@ function HomeContent() {
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const urlFormulaId = searchParams.get('formula');
+  const urlCloudEndpoint = searchParams.get('cloud');
 
   const [groups, setGroups] = useState<FormulaGroup[]>([]);
   const [selectedGroupId, setSelectedGroupId] = useState<string | null>(null);
   const [selectedFormulaId, setSelectedFormulaId] = useState<string | null>(null);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(true);
+  const [cloudLoading, setCloudLoading] = useState(false);
 
   // 更新 URL 的函数
   const updateUrl = useCallback((formulaId: string | null) => {
@@ -129,8 +131,65 @@ function HomeContent() {
         }
       }
     }
+
+    // 处理 cloud query 参数 - 初次绑定时自动加载数据
+    if (urlCloudEndpoint) {
+      const hasQueryBound = localStorage.getItem('cloudQueryBound');
+      if (!hasQueryBound) {
+        // 首次通过 query 参数绑定云端，自动加载数据
+        handleCloudQueryBind(urlCloudEndpoint);
+      }
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []); // 只在组件挂载时执行一次
+
+  // 处理 cloud query 参数绑定
+  const handleCloudQueryBind = async (endpoint: string) => {
+    if (cloudLoading) return;
+    
+    setCloudLoading(true);
+    try {
+      // 保存配置到 localStorage
+      const cloudConfig = {
+        endpoint: endpoint.trim(),
+        apiKey: undefined,
+        namespaceId: undefined,
+      };
+      localStorage.setItem('formulaMapper_cloudConfig', JSON.stringify(cloudConfig));
+      
+      // 标记为已通过 query 绑定
+      localStorage.setItem('cloudQueryBound', 'true');
+      
+      // 从云端加载数据
+      const { CloudflareStorageProvider, StorageProviderType } = await import('@/lib/cloud');
+      const provider = new CloudflareStorageProvider({
+        type: StorageProviderType.CLOUDFLARE,
+        endpoint: endpoint.trim(),
+      });
+      
+      const result = await provider.load('formula-data');
+      
+      if (result.success && result.data) {
+        setGroups(result.data.groups);
+        saveData(result.data.groups);
+        setSelectedGroupId(null);
+        setSelectedFormulaId(null);
+        toast.success('已从云端加载数据');
+        
+        // 清理 URL 参数
+        const params = new URLSearchParams(window.location.search);
+        params.delete('cloud');
+        const newUrl = params.toString() ? `${pathname}?${params.toString()}` : pathname;
+        router.push(newUrl, { scroll: false });
+      } else {
+        toast.error(result.error || '从云端加载数据失败');
+      }
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : '从云端加载数据失败');
+    } finally {
+      setCloudLoading(false);
+    }
+  };
 
   // 监听 URL 公式参数变化（用于处理浏览器前进/后退）
   useEffect(() => {
@@ -493,6 +552,22 @@ function HomeContent() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-blue-100 to-blue-50">
+      {/* 云端加载提示 */}
+      {cloudLoading && (
+        <div className="fixed inset-0 bg-black/30 flex items-center justify-center z-[100]">
+          <div className="bg-white rounded-xl shadow-2xl p-8 max-w-sm w-full mx-4">
+            <div className="flex flex-col items-center">
+              <svg className="animate-spin h-12 w-12 text-blue-600 mb-4" fill="none" viewBox="0 0 24 24">
+                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+              </svg>
+              <h3 className="text-lg font-semibold text-gray-900 mb-2">正在从云端加载数据</h3>
+              <p className="text-sm text-gray-500 text-center">请稍候...</p>
+            </div>
+          </div>
+        </div>
+      )}
+
       <div className="px-6 py-8">
         {/* 标题 */}
         <div className="mb-6">
