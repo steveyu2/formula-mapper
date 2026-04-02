@@ -444,8 +444,14 @@ export function CloudSyncModal({ isOpen, onClose, groups, onLoadData }: CloudSyn
 
       {/* 密码输入对话框 - 使用 Portal 渲染到 body 避免被 Dialog 遮罩层阻挡 */}
       {showPasswordDialog && createPortal(
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[1000] pointer-events-auto">
-          <div className="bg-white rounded-2xl shadow-2xl p-6 w-full max-w-md mx-4 pointer-events-auto">
+        <div 
+          className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[1000] pointer-events-auto"
+          onClick={(e) => e.stopPropagation()}
+        >
+          <div 
+            className="bg-white rounded-2xl shadow-2xl p-6 w-full max-w-md mx-4 pointer-events-auto"
+            onClick={(e) => e.stopPropagation()}
+          >
             <h3 className="text-lg font-semibold mb-4">输入写入密码</h3>
             <p className="text-sm text-gray-600 mb-4">
               保存到云端需要输入写入密码
@@ -459,17 +465,22 @@ export function CloudSyncModal({ isOpen, onClose, groups, onLoadData }: CloudSyn
                   handlePasswordSubmit((e.target as HTMLInputElement).value);
                 }
               }}
+              onClick={(e) => e.stopPropagation()}
               autoFocus
             />
             <div className="flex gap-2 pointer-events-auto">
               <button
-                onClick={() => setShowPasswordDialog(false)}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setShowPasswordDialog(false);
+                }}
                 className="flex-1 px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors pointer-events-auto"
               >
                 取消
               </button>
               <button
-                onClick={() => {
+                onClick={(e) => {
+                  e.stopPropagation();
                   const input = document.querySelector('input[type="password"]') as HTMLInputElement;
                   handlePasswordSubmit(input?.value || '');
                 }}
