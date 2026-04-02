@@ -47,7 +47,13 @@ export function FormulaRenderer({
   return (
     <div className="flex items-center justify-center gap-2 flex-wrap">
       {tokens.map((token, index) => {
-        if (token.type === 'variable') {
+        if (token.type === 'function') {
+          return (
+            <span key={index} className="px-2.5 py-1 text-base font-bold text-purple-600 bg-purple-50 rounded-lg">
+              {token.value}
+            </span>
+          );
+        } else if (token.type === 'variable') {
           const colorIndex = variableColorIndex[token.value];
           const colors = VARIABLE_COLORS[colorIndex];
           const isReference = formulaReferences[token.value];
@@ -116,13 +122,14 @@ export function FormulaRenderer({
 }
 
 interface Token {
-  type: 'variable' | 'operator' | 'paren' | 'number' | 'whitespace';
+  type: 'variable' | 'operator' | 'paren' | 'number' | 'whitespace' | 'function';
   value: string;
 }
 
 function tokenizeFormula(formula: string): Token[] {
   const tokens: Token[] = [];
   let i = 0;
+  const functions = ['max', 'min', 'sum', 'abs', 'sqrt', 'pow'];
 
   while (i < formula.length) {
     const char = formula[i];
@@ -132,7 +139,7 @@ function tokenizeFormula(formula: string): Token[] {
       continue;
     }
 
-    if (['+', '-', '*', '/', '^', '(', ')', '[', ']', '{', '}', '（', '）'].includes(char)) {
+    if (['+', '-', '*', '/', '^', '(', ')', '[', ']', '{', '}', '（', '）', ','].includes(char)) {
       const type = ['(', ')', '[', ']', '{', '}', '（', '）'].includes(char) ? 'paren' : 'operator';
       tokens.push({ type, value: char });
       i++;
@@ -146,7 +153,13 @@ function tokenizeFormula(formula: string): Token[] {
         varName += formula[i];
         i++;
       }
-      tokens.push({ type: 'variable', value: varName });
+      
+      // 检查是否是函数名
+      if (functions.includes(varName.toLowerCase()) && formula[i] === '(') {
+        tokens.push({ type: 'function', value: varName });
+      } else {
+        tokens.push({ type: 'variable', value: varName });
+      }
       continue;
     }
 

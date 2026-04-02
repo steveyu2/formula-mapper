@@ -36,6 +36,32 @@ export function ASTTree({ ast, mapping }: ASTTreeProps) {
     if (node.type === 'number') {
       return String(node.value);
     }
+    if (node.type === 'function') {
+      if (!node.args || node.args.length === 0) {
+        return '';
+      }
+      const funcName = node.func?.toLowerCase() || '';
+      const argsLatex = node.args.map(arg => astToLatex(arg)).join(', ');
+      
+      switch (funcName) {
+        case 'max':
+        case 'min':
+          return `\\max(${argsLatex})`;
+        case 'sum':
+          return `\\sum(${argsLatex})`;
+        case 'abs':
+          return `|${argsLatex}|`;
+        case 'sqrt':
+          return `\\sqrt{${argsLatex}}`;
+        case 'pow':
+          if (node.args.length >= 2) {
+            return `${astToLatex(node.args[0])}^{${astToLatex(node.args[1])}}`;
+          }
+          return argsLatex;
+        default:
+          return `${funcName}(${argsLatex})`;
+      }
+    }
     if (node.type === 'operator') {
       if (!node.left || !node.right) {
         return '';

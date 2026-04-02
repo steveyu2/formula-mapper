@@ -34,6 +34,36 @@
           "createdAt": 1711800300000,
           "variableFormulaMapping": {},
           "subFormulas": []
+        },
+        {
+          "id": "formula-4",
+          "name": "委托保证金 min版本",
+          "englishFormula": "min(OPb,SP)/L+S*VOLb*takerFee",
+          "chineseFormula": "最小值(委托价,卖一价)/杠杆倍数+面值*张数*手续费率",
+          "description": "币本位衍生品合约：单笔做多委托保证金计算",
+          "createdAt": 1711800400000,
+          "variableFormulaMapping": {},
+          "subFormulas": []
+        },
+        {
+          "id": "formula-5",
+          "name": "开仓手续费 sum版本",
+          "englishFormula": "sum(S*VOL*FP*LR)",
+          "chineseFormula": "求和(面值*张数*标记价格*手续费率)",
+          "description": "U本位衍生品合约：各币对总开仓手续费",
+          "createdAt": 1711800500000,
+          "variableFormulaMapping": {},
+          "subFormulas": []
+        },
+        {
+          "id": "formula-6",
+          "name": "仓位保证金 max版本",
+          "englishFormula": "max(0,(sum(OMb)-max(0,IMs)))",
+          "chineseFormula": "最大值(0,(求和(委托保证金)-最大值(0,做空保证金)))",
+          "description": "单向持仓：单币对总冻结保证金",
+          "createdAt": 1711800600000,
+          "variableFormulaMapping": {},
+          "subFormulas": []
         }
       ]
     },

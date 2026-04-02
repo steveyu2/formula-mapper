@@ -33,7 +33,7 @@ export class FormulaParser {
         continue;
       }
 
-      if (['+', '-', '*', '/', '^', '(', ')', '[', ']', '{', '}', '（', '）'].includes(char)) {
+      if (['+', '-', '*', '/', '^', '(', ')', '[', ']', '{', '}', '（', '）', ','].includes(char)) {
         tokens.push({ type: 'operator', value: char });
         i++;
         continue;
@@ -140,10 +140,53 @@ export class FormulaParser {
     }
 
     if (token.type === 'variable') {
-      this.consume();
+      const varToken = this.consume();
+      
+      // 检查是否是函数调用（支持英文和中文括号）
+      const nextToken = this.peek();
+      if (nextToken && nextToken.type === 'operator' && ['(', '（'].includes(nextToken.value)) {
+        // 这是一个函数调用
+        const funcName = varToken.value.toLowerCase();
+        
+        // 检查是否是支持的函数
+        if (['max', 'min', 'sum', 'abs', 'sqrt', 'pow'].includes(funcName)) {
+          const openBracket = nextToken.value;
+          const closeBracket = openBracket === '(' ? ')' : '）'; // 中文左括号对应中文右括号
+          
+          this.consume(); // 消费 '(' 或 '（'
+          
+          // 解析函数参数
+          const args: ASTNode[] = [];
+          
+          // 如果不是立即关闭的括号，解析参数
+          if (this.peek()?.value !== closeBracket) {
+            args.push(this.parseExpression());
+            
+            // 解析其他参数（使用 ',' 分隔）
+            while (this.peek()?.value === ',') {
+              this.consume(); // 消费 ','
+              args.push(this.parseExpression());
+            }
+          }
+          
+          const closeToken = this.peek();
+          if (!closeToken || closeToken.value !== closeBracket) {
+            throw new Error(`函数调用语法错误：缺少右括号 ${closeBracket}`);
+          }
+          this.consume(); // 消费 ')' 或 '）'
+          
+          return {
+            type: 'function',
+            func: funcName,
+            args,
+          };
+        }
+      }
+      
+      // 不是函数，返回普通变量
       return {
         type: 'variable',
-        name: token.value,
+        name: varToken.value,
       };
     }
 

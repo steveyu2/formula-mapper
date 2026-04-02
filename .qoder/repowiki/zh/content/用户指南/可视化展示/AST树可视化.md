@@ -14,6 +14,7 @@
 
 ## 更新摘要
 **变更内容**
+- 新增数学函数LaTeX渲染支持，包括max/min、sum、abs、sqrt、pow等函数
 - 增强了LaTeX输出的特殊字符处理，特别是下划线字符的转义机制
 - 改进了变量映射展示功能，增加了变量说明面板
 - 优化了AST树组件的LaTeX转换算法，增强了双语言支持
@@ -25,18 +26,19 @@
 3. [核心组件](#核心组件)
 4. [架构概览](#架构概览)
 5. [详细组件分析](#详细组件分析)
-6. [依赖关系分析](#依赖关系分析)
-7. [性能考虑](#性能考虑)
-8. [故障排除指南](#故障排除指南)
-9. [结论](#结论)
+6. [数学函数支持](#数学函数支持)
+7. [依赖关系分析](#依赖关系分析)
+8. [性能考虑](#性能考虑)
+9. [故障排除指南](#故障排除指南)
+10. [结论](#结论)
 
 ## 简介
 
 AST树可视化功能是本项目的核心特性之一，它允许用户以图形化的方式理解和分析公式表达式的内部结构。通过将抽象语法树（Abstract Syntax Tree）转换为LaTeX格式并在网页上渲染，用户可以直观地看到公式的层次结构、运算符优先级以及变量之间的关系。
 
-本功能基于递归下降解析器构建，支持基本的数学运算符（+、-、*、/、^），能够正确处理括号优先级和运算符结合性。通过KaTeX数学渲染引擎，复杂的数学表达式可以以专业的数学符号形式显示。
+本功能基于递归下降解析器构建，支持基本的数学运算符（+、-、*、/、^），能够正确处理括号优先级和运算符结合性。系统现已增强数学函数支持，能够正确渲染max/min、sum、abs、sqrt、pow等函数的LaTeX表示。通过KaTeX数学渲染引擎，复杂的数学表达式可以以专业的数学符号形式显示。
 
-**更新** 增强了对特殊字符（特别是下划线）的处理能力，改进了LaTeX输出的质量和准确性。
+**更新** 新增了对数学函数的LaTeX渲染支持，显著提升了复杂公式的可视化效果和用户体验。
 
 ## 项目结构
 
@@ -73,12 +75,12 @@ FormulaReferenceModal --> ASTTree
 
 **图表来源**
 - [page.tsx:1-800](file://src/app/page.tsx#L1-L800)
-- [FormulaList.tsx:1-387](file://src/components/FormulaList.tsx#L1-L387)
-- [ASTTree.tsx:1-191](file://src/components/ASTTree.tsx#L1-L191)
+- [FormulaList.tsx:1-392](file://src/components/FormulaList.tsx#L1-L392)
+- [ASTTree.tsx:1-217](file://src/components/ASTTree.tsx#L1-L217)
 
 **章节来源**
 - [page.tsx:1-800](file://src/app/page.tsx#L1-L800)
-- [FormulaList.tsx:1-387](file://src/components/FormulaList.tsx#L1-L387)
+- [FormulaList.tsx:1-392](file://src/components/FormulaList.tsx#L1-L392)
 
 ## 核心组件
 
@@ -89,11 +91,12 @@ ASTTree组件是整个可视化系统的核心，负责将解析后的AST节点�
 - **动态LaTeX渲染**：使用KaTeX引擎实时渲染数学表达式
 - **双语言支持**：支持英文和中文变量显示切换
 - **智能括号处理**：根据运算符优先级自动添加必要的括号
+- **数学函数支持**：新增对max/min、sum、abs、sqrt、pow等函数的LaTeX渲染
 - **特殊字符转义**：增强的LaTeX转义机制，特别是下划线字符处理
 - **响应式设计**：适配不同屏幕尺寸的显示需求
 - **变量映射展示**：提供详细的变量说明面板
 
-**更新** 新增了专门的变量映射说明功能，用户可以清楚地看到每个变量的中英文对应关系。
+**更新** 新增了专门的数学函数LaTeX渲染功能，用户可以直观地看到函数调用的结构。
 
 ### 公式解析器
 
@@ -101,6 +104,7 @@ FormulaParser类实现了递归下降解析算法，能够准确解析数学表�
 
 - **词法分析**：将输入字符串分解为Token序列
 - **语法分析**：根据运算符优先级构建正确的AST结构
+- **函数识别**：支持max、min、sum、abs、sqrt、pow等数学函数的识别
 - **错误处理**：提供详细的语法错误信息
 - **括号匹配**：支持多种括号类型的正确处理
 
@@ -113,8 +117,8 @@ VariableMapper类负责建立英文变量与中文变量之间的对应关系：
 - **格式化输出**：提供结构化的映射数据格式
 
 **章节来源**
-- [ASTTree.tsx:1-191](file://src/components/ASTTree.tsx#L1-L191)
-- [parser.ts:1-178](file://src/lib/parser.ts#L1-L178)
+- [ASTTree.tsx:1-217](file://src/components/ASTTree.tsx#L1-L217)
+- [parser.ts:1-218](file://src/lib/parser.ts#L1-L218)
 - [mapper.ts:1-89](file://src/lib/mapper.ts#L1-L89)
 
 ## 架构概览
@@ -134,9 +138,11 @@ Parser->>Parser : tokenize(formula)
 Parser->>Parser : parseExpression()
 Parser->>Parser : parseTerm()
 Parser->>Parser : parseFactor()
+Parser->>Parser : parseFunction()
 Parser-->>FormulaList : 返回AST节点
 FormulaList->>ASTTree : 传递AST和映射
 ASTTree->>ASTTree : astToLatex(node)
+ASTTree->>ASTTree : 处理数学函数LaTeX转换
 ASTTree->>ASTTree : 处理特殊字符转义
 ASTTree->>KaTeX : renderToString(latex)
 KaTeX-->>ASTTree : 返回HTML
@@ -151,14 +157,14 @@ ASTTree-->>User : 显示LaTeX公式
 系统的关键流程包括：
 1. 用户在公式列表中选择要查看的公式
 2. 组件触发解析器对英文公式进行语法分析
-3. 解析器构建AST树结构并返回给调用方
-4. ASTTree组件将AST转换为LaTeX格式，处理特殊字符转义
+3. 解析器构建AST树结构，包括数学函数节点，返回给调用方
+4. ASTTree组件将AST转换为LaTeX格式，处理数学函数和特殊字符转义
 5. KaTeX引擎渲染LaTeX为最终的可视化结果
 6. 显示变量映射说明面板
 
 **章节来源**
-- [FormulaList.tsx:1-387](file://src/components/FormulaList.tsx#L1-L387)
-- [parser.ts:1-178](file://src/lib/parser.ts#L1-L178)
+- [FormulaList.tsx:1-392](file://src/components/FormulaList.tsx#L1-L392)
+- [parser.ts:1-218](file://src/lib/parser.ts#L1-L218)
 
 ## 详细组件分析
 
@@ -191,6 +197,8 @@ class ASTNode {
 +string value
 +ASTNode left
 +ASTNode right
++string func
++ASTNode[] args
 }
 ASTTree --> LatexRenderer : "包含"
 ASTTree --> ASTNode : "使用"
@@ -199,17 +207,18 @@ LatexRenderer --> ASTNode : "依赖"
 
 **图表来源**
 - [ASTTree.tsx:6-112](file://src/components/ASTTree.tsx#L6-L112)
-- [types.ts:6-13](file://src/lib/types.ts#L6-L13)
+- [types.ts:6-15](file://src/lib/types.ts#L6-L15)
 
 #### 核心实现原理
 
 1. **LaTeX转换算法**：组件实现了递归的astToLatex函数，根据不同节点类型生成相应的LaTeX代码
-2. **运算符优先级处理**：通过检查子节点的运算符类型和优先级，自动添加必要的括号
-3. **双语言支持机制**：利用映射表将英文变量替换为对应的中文变量
-4. **动态资源加载**：在运行时动态加载KaTeX CSS样式文件
-5. **特殊字符转义**：增强的下划线转义机制，确保LaTeX输出的正确性
+2. **数学函数处理**：新增了专门的函数节点处理逻辑，支持max/min、sum、abs、sqrt、pow等函数
+3. **运算符优先级处理**：通过检查子节点的运算符类型和优先级，自动添加必要的括号
+4. **双语言支持机制**：利用映射表将英文变量替换为对应的中文变量
+5. **动态资源加载**：在运行时动态加载KaTeX CSS样式文件
+6. **特殊字符转义**：增强的下划线转义机制，确保LaTeX输出的正确性
 
-**更新** 新增了专门的变量映射说明功能，在英文模式下显示详细的变量对应关系。
+**更新** 新增了数学函数的LaTeX渲染支持，显著提升了复杂公式的可视化效果。
 
 #### 节点类型处理策略
 
@@ -218,6 +227,7 @@ LatexRenderer --> ASTNode : "依赖"
 | variable | 包装在\text{}中，处理下划线转义 | `\text{变量\_名}` |
 | number | 直接输出数值 | `123` |
 | operator | 根据运算符类型生成相应LaTeX | `a + b` 或 `\frac{a}{b}` |
+| function | 根据函数类型生成专业LaTeX格式 | `\max(a,b)` 或 `\sqrt{a}` |
 
 **章节来源**
 - [ASTTree.tsx:27-61](file://src/components/ASTTree.tsx#L27-L61)
@@ -237,18 +247,22 @@ ParseTerm --> CheckTermOp{"遇到*,/?"}
 CheckTermOp --> |是| ParseFactor
 CheckTermOp --> |否| ReturnExpr["返回表达式"]
 ParseFactor --> FactorType{"因子类型"}
-FactorType --> |变量| CreateVar["创建变量节点"]
+FactorType --> |变量| CheckFunction{"是函数调用?"}
+CheckFunction --> |是| ParseFunction["parseFunction()"]
+CheckFunction --> |否| CreateVar["创建变量节点"]
 FactorType --> |数字| CreateNum["创建数字节点"]
 FactorType --> |括号| ParseExprInParen["解析括号内表达式"]
+ParseFunction --> CreateFuncNode["创建函数节点"]
 CreateVar --> ReturnTerm["返回项"]
 CreateNum --> ReturnTerm
+CreateFuncNode --> ReturnTerm
 ParseExprInParen --> ReturnTerm
-ReturnExpr --> End([完成])
-ReturnTerm --> End
+ReturnTerm --> End([完成])
+ReturnExpr --> End
 ```
 
 **图表来源**
-- [parser.ts:78-176](file://src/lib/parser.ts#L78-L176)
+- [parser.ts:78-217](file://src/lib/parser.ts#L78-L217)
 
 #### 语法分析规则
 
@@ -256,9 +270,21 @@ ReturnTerm --> End
 1. **括号优先级最高**：括号内的表达式优先计算
 2. **乘除运算优先于加减**：`a + b * c` 等价于 `a + (b * c)`
 3. **左结合性**：相同优先级的运算符从左到右计算
+4. **函数调用优先级**：函数调用在变量之前解析
+
+**更新** 新增了函数调用的解析支持，能够正确识别和处理数学函数。
+
+#### 数学函数解析
+
+解析器现在支持以下数学函数的识别和解析：
+- **max/min**：二元函数，返回两个数的最大值或最小值
+- **sum**：求和函数，支持多个参数
+- **abs**：绝对值函数
+- **sqrt**：平方根函数
+- **pow**：幂函数，支持底数和指数
 
 **章节来源**
-- [parser.ts:78-176](file://src/lib/parser.ts#L78-L176)
+- [parser.ts:78-217](file://src/lib/parser.ts#L78-L217)
 
 ### 变量映射系统
 
@@ -286,6 +312,40 @@ FormatOutput --> Result[VariableMapping对象]
 
 **章节来源**
 - [mapper.ts:52-70](file://src/lib/mapper.ts#L52-L70)
+
+## 数学函数支持
+
+系统现已全面支持数学函数的LaTeX渲染，为用户提供更加丰富的可视化体验。
+
+### 支持的数学函数
+
+| 函数名 | LaTeX表示 | 参数数量 | 用途描述 |
+|--------|-----------|----------|----------|
+| max | `\max` | 2+ | 返回参数中的最大值 |
+| min | `\min` | 2+ | 返回参数中的最小值 |
+| sum | `\sum` | 2+ | 计算参数的和 |
+| abs | `|·|` | 1 | 计算绝对值 |
+| sqrt | `\sqrt{·}` | 1 | 计算平方根 |
+| pow | `·^{·}` | 2 | 计算幂运算 |
+
+### LaTeX渲染策略
+
+1. **max/min函数**：使用`\max()`或`\min()`命令，参数之间用逗号分隔
+2. **sum函数**：使用`\sum()`命令，支持多个参数
+3. **abs函数**：使用绝对值符号`|·|`包围参数
+4. **sqrt函数**：使用`\sqrt{}`命令，参数放在根号内
+5. **pow函数**：使用上标表示法`base^{exponent}`
+
+### 函数参数处理
+
+数学函数的参数会递归处理，确保：
+- 每个参数都会被转换为LaTeX格式
+- 复杂表达式会被正确包裹在括号中
+- 嵌套函数调用会被正确解析和渲染
+
+**章节来源**
+- [ASTTree.tsx:39-63](file://src/components/ASTTree.tsx#L39-L63)
+- [parser.ts:145-180](file://src/lib/parser.ts#L145-L180)
 
 ## 依赖关系分析
 
@@ -325,8 +385,8 @@ FormulaReferenceModal --> Types
 ```
 
 **图表来源**
-- [ASTTree.tsx:1-191](file://src/components/ASTTree.tsx#L1-L191)
-- [FormulaList.tsx:1-387](file://src/components/FormulaList.tsx#L1-L387)
+- [ASTTree.tsx:1-217](file://src/components/ASTTree.tsx#L1-L217)
+- [FormulaList.tsx:1-392](file://src/components/FormulaList.tsx#L1-L392)
 
 ### 关键依赖关系
 
@@ -334,6 +394,7 @@ FormulaReferenceModal --> Types
 2. **FormulaList → Parser/Mapper**：在展开公式时触发解析和映射
 3. **FormulaReferenceModal → ASTTree**：支持嵌套的公式引用查看
 4. **各组件 → Types**：统一的数据类型定义和接口规范
+5. **Parser → ASTNode**：使用增强的AST节点类型支持函数节点
 
 **章节来源**
 - [ASTTree.tsx:15-24](file://src/components/ASTTree.tsx#L15-L24)
@@ -349,12 +410,14 @@ AST树可视化功能在设计时充分考虑了性能优化：
 2. **状态缓存**：组件状态在收起时自动清理，避免内存泄漏
 3. **条件渲染**：使用条件判断避免不必要的DOM更新
 4. **特殊字符处理优化**：高效的字符串转义和替换算法
+5. **数学函数渲染优化**：针对常见函数的LaTeX模板预处理
 
 ### 解析性能优化
 
 1. **单次解析**：每个展开的公式只解析一次，结果缓存到组件状态
 2. **增量更新**：只有当公式内容或展开状态改变时才重新解析
 3. **错误边界**：解析失败时提供友好的错误提示，避免应用崩溃
+4. **函数识别优化**：使用预定义函数列表提高识别效率
 
 ### 内存管理
 
@@ -373,12 +436,28 @@ AST树可视化功能在设计时充分考虑了性能优化：
 2. LaTeX渲染错误
 3. KaTeX资源加载失败
 4. 特殊字符转义问题
+5. 数学函数语法错误
 
 **解决步骤**：
 1. 检查公式语法是否正确
 2. 查看浏览器控制台是否有错误信息
 3. 确认网络连接正常，KaTeX CDN可访问
 4. 验证变量名中是否包含特殊字符
+5. 检查数学函数的参数数量和语法
+
+#### 数学函数渲染异常
+
+**可能原因**：
+1. 函数名大小写不匹配
+2. 函数参数语法错误
+3. 缺少必需的括号
+4. 参数数量不正确
+
+**解决步骤**：
+1. 确保函数名为小写形式
+2. 检查函数调用语法是否正确
+3. 验证所有括号都正确匹配
+4. 确认函数参数数量符合要求
 
 #### 变量映射不正确
 
@@ -404,7 +483,7 @@ AST树可视化功能在设计时充分考虑了性能优化：
 3. 清理浏览器缓存和Cookie
 4. 检查网络连接速度
 
-**更新** 新增了特殊字符转义问题的排查步骤。
+**更新** 新增了数学函数相关的故障排除步骤。
 
 **章节来源**
 - [ASTTree.tsx:124-142](file://src/components/ASTTree.tsx#L124-L142)
@@ -419,14 +498,16 @@ AST树可视化功能通过精心设计的架构和实现，成功地将复杂�
 3. **扩展性**：模块化设计便于功能扩展和维护
 4. **性能**：懒加载和状态管理确保良好的用户体验
 5. **可靠性**：完善的错误处理和用户反馈机制
+6. **数学函数支持**：新增的专业数学函数LaTeX渲染能力
 
-**更新** 新版本显著增强了特殊字符处理能力和变量映射展示功能，提高了LaTeX输出的质量和用户的使用体验。
+**更新** 新版本显著增强了数学函数处理能力和LaTeX输出质量，为复杂公式的可视化提供了强大的支持。
 
-通过这个功能，用户可以深入理解公式的内部结构，分析运算符优先级，识别变量关系，并进行有效的公式调试和验证。这对于教育、学术研究和工程应用都具有重要的价值。
+通过这个功能，用户可以深入理解公式的内部结构，分析运算符优先级，识别变量关系，并进行有效的公式调试和验证。新增的数学函数支持使得系统能够处理更加复杂的数学表达式，包括函数调用、复合运算等高级特性。
 
-未来可以考虑的功能增强包括：
-- 支持更复杂的数学函数
+这对于教育、学术研究和工程应用都具有重要的价值。未来可以考虑的功能增强包括：
+- 支持更多数学函数类型
 - 添加交互式编辑功能
 - 实现多级折叠显示
 - 提供导出功能
 - 增强特殊字符处理能力
+- 优化数学函数的LaTeX渲染性能

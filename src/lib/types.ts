@@ -4,12 +4,14 @@ export interface Token {
 }
 
 export interface ASTNode {
-  type: 'operator' | 'variable' | 'number';
+  type: 'operator' | 'variable' | 'number' | 'function';
   operator?: string;
   name?: string;
   value?: string;
   left?: ASTNode;
   right?: ASTNode;
+  func?: string; // 函数名：max, min, sum 等
+  args?: ASTNode[]; // 函数参数列表
 }
 
 export interface VariableMapping {
