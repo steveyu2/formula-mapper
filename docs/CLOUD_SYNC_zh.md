@@ -31,13 +31,34 @@ binding = "FORMULA_DATA"
 id = "your-namespace-id-here"
 ```
 
-### 4. 部署 Worker
+### 4. 设置安全密码（推荐）
+
+为了保护你的数据，建议设置写入密码：
+
+```bash
+cd cloud/cloudflare-workers
+
+# 设置写入密码（保护保存和删除操作）
+wrangler secret put WRITE_PASSWORD
+# 输入提示后输入你的密码
+
+# （可选）设置 API Key
+wrangler secret put API_KEY
+```
+
+**安全说明**：
+- ✅ 密码只存在于 Worker 服务器端
+- ✅ 前端不存储或传输密码
+- ✅ 保存和删除操作需要密码验证
+- ✅ 读取操作无需密码
+
+### 5. 部署 Worker
 
 ```bash
 npx wrangler deploy
 ```
 
-### 5. 在应用中配置
+### 6. 在应用中配置
 
 1. 点击应用右上角的「云端同步」按钮
 2. 输入 Worker URL（例如：`https://your-worker.your-subdomain.workers.dev`）

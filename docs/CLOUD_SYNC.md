@@ -31,13 +31,34 @@ binding = "FORMULA_DATA"
 id = "your-namespace-id-here"
 ```
 
-### 4. Deploy the Worker
+### 4. Set Security Password (Recommended)
+
+To protect your data, it's recommended to set a write password:
+
+```bash
+cd cloud/cloudflare-workers
+
+# Set write password (protects save and delete operations)
+wrangler secret put WRITE_PASSWORD
+# Enter your password when prompted
+
+# (Optional) Set API Key
+wrangler secret put API_KEY
+```
+
+**Security Notes**:
+- ✅ Password only exists on the Worker server
+- ✅ Frontend does not store or transmit password
+- ✅ Save and delete operations require password verification
+- ✅ Read operations do not require password
+
+### 5. Deploy the Worker
 
 ```bash
 npx wrangler deploy
 ```
 
-### 5. Configure in App
+### 6. Configure in App
 
 1. Click the "Cloud Sync" button in the top-right of the app
 2. Enter your Worker URL (e.g., `https://your-worker.your-subdomain.workers.dev`)
