@@ -8,12 +8,25 @@
 - [src/lib/mapper.ts](file://src/lib/mapper.ts)
 - [src/lib/importExport.ts](file://src/lib/importExport.ts)
 - [src/lib/utils.ts](file://src/lib/utils.ts)
+- [src/lib/cloud/index.ts](file://src/lib/cloud/index.ts)
+- [src/lib/cloud/factory.ts](file://src/lib/cloud/factory.ts)
+- [src/lib/cloud/types.ts](file://src/lib/cloud/types.ts)
+- [src/lib/cloud/providers/base.ts](file://src/lib/cloud/providers/base.ts)
+- [src/lib/cloud/providers/cloudflare.ts](file://src/lib/cloud/providers/cloudflare.ts)
 - [src/components/FormulaList.tsx](file://src/components/FormulaList.tsx)
 - [src/components/FormulaRenderer.tsx](file://src/components/FormulaRenderer.tsx)
 - [src/components/ASTTree.tsx](file://src/components/ASTTree.tsx)
 - [src/components/SubFormulaManager.tsx](file://src/components/SubFormulaManager.tsx)
 - [src/components/FormulaReferenceSelector.tsx](file://src/components/FormulaReferenceSelector.tsx)
+- [src/components/CloudSyncButton.tsx](file://src/components/CloudSyncButton.tsx)
+- [src/components/CloudSyncModal.tsx](file://src/components/CloudSyncModal.tsx)
 - [src/app/page.tsx](file://src/app/page.tsx)
+- [cloud/cloudflare-workers/index.ts](file://cloud/cloudflare-workers/index.ts)
+- [cloud/cloudflare-workers/wrangler.toml](file://cloud/cloudflare-workers/wrangler.toml)
+- [cloud/CORS_SOLUTION_SUMMARY.md](file://cloud/CORS_SOLUTION_SUMMARY.md)
+- [cloud/CORS_TROUBLESHOOTING.md](file://cloud/CORS_TROUBLESHOOTING.md)
+- [cloud/DEPLOYMENT_CHECKLIST.md](file://cloud/DEPLOYMENT_CHECKLIST.md)
+- [cloud/QUICK_FIX.md](file://cloud/QUICK_FIX.md)
 - [package.json](file://package.json)
 </cite>
 
@@ -23,28 +36,32 @@
 3. [核心组件](#核心组件)
 4. [架构总览](#架构总览)
 5. [详细组件分析](#详细组件分析)
-6. [依赖分析](#依赖分析)
-7. [性能考虑](#性能考虑)
-8. [故障排查指南](#故障排查指南)
-9. [结论](#结论)
-10. [附录](#附录)
+6. [Cloudflare Workers API](#cloudflare-workers-api)
+7. [依赖分析](#依赖分析)
+8. [性能考虑](#性能考虑)
+9. [故障排查指南](#故障排查指南)
+10. [结论](#结论)
+11. [附录](#附录)
 
 ## 简介
-本API参考文档面向“公式变量映射与可视化工具”的开发者，系统性梳理了数据模型、解析器、映射器、导入导出、本地存储以及前端组件的公共接口与使用方法。文档涵盖：
+本API参考文档面向"公式变量映射与可视化工具"的开发者，系统性梳理了数据模型、解析器、映射器、导入导出、本地存储以及前端组件的公共接口与使用方法。文档涵盖：
 - 数据存储API：数据结构、持久化与工厂方法
 - 解析器API：公式词法分析与语法解析
 - 映射器API：变量提取、映射生成与格式化
 - 导入导出API：JSON格式、校验与错误处理
 - 工具函数API：通用工具与UI辅助
 - 组件API：公式列表、渲染器、AST树、子公式管理、引用选择器等
+- **新增**：Cloudflare Workers云存储API：完整的CORS配置、预检请求处理、版本管理API和部署配置
 
 ## 项目结构
-项目采用Next.js应用结构，核心逻辑集中在src/lib目录，UI组件位于src/components，入口页面位于src/app/page.tsx。
+项目采用Next.js应用结构，核心逻辑集中在src/lib目录，UI组件位于src/components，入口页面位于src/app/page.tsx。新增了Cloudflare Workers后端服务和相关的云存储组件。
 
 ```mermaid
 graph TB
 subgraph "应用层"
 Page["page.tsx<br/>应用入口与路由控制"]
+CloudSync["CloudSyncButton.tsx<br/>云端同步按钮"]
+CloudModal["CloudSyncModal.tsx<br/>云端同步配置"]
 end
 subgraph "组件层"
 FL["FormulaList.tsx<br/>公式列表"]
@@ -60,12 +77,23 @@ Parser["parser.ts<br/>公式解析器"]
 Mapper["mapper.ts<br/>变量映射器"]
 ImportExport["importExport.ts<br/>导入导出"]
 Utils["utils.ts<br/>通用工具"]
+CloudLib["cloud/index.ts<br/>云存储库"]
+CloudFactory["cloud/factory.ts<br/>存储提供者工厂"]
+CloudTypes["cloud/types.ts<br/>云存储类型定义"]
+CloudflareProvider["cloud/providers/cloudflare.ts<br/>Cloudflare存储提供者"]
 end
-Page --> FL
-Page --> FR
-Page --> AT
-Page --> SFM
-Page --> FRS
+subgraph "Cloudflare Workers"
+WorkerIndex["cloudflare-workers/index.ts<br/>Worker主入口"]
+WorkerConfig["cloudflare-workers/wrangler.toml<br/>部署配置"]
+CORSDocs["CORS文档<br/>CORS_SOLUTION_SUMMARY.md"]
+Troubleshooting["故障排查<br/>CORS_TROUBLESHOOTING.md"]
+Deployment["部署检查<br/>DEPLOYMENT_CHECKLIST.md"]
+QuickFix["快速修复<br/>QUICK_FIX.md"]
+end
+Page --> CloudSync
+Page --> CloudModal
+CloudSync --> CloudLib
+CloudModal --> CloudLib
 FL --> Parser
 FL --> Mapper
 FL --> FR
@@ -76,27 +104,29 @@ SFM --> Types
 FRS --> Types
 Storage --> Types
 ImportExport --> Types
-Mapper --> Types
-Parser --> Types
+CloudLib --> CloudFactory
+CloudLib --> CloudTypes
+CloudLib --> CloudflareProvider
+CloudFactory --> CloudflareProvider
+WorkerIndex --> WorkerConfig
+CORSDocs --> WorkerIndex
+Troubleshooting --> WorkerIndex
+Deployment --> WorkerIndex
+QuickFix --> WorkerIndex
 ```
 
-图表来源
+**图表来源**
 - [src/app/page.tsx:1-707](file://src/app/page.tsx#L1-L707)
-- [src/components/FormulaList.tsx:1-387](file://src/components/FormulaList.tsx#L1-L387)
-- [src/components/FormulaRenderer.tsx:1-169](file://src/components/FormulaRenderer.tsx#L1-L169)
-- [src/components/ASTTree.tsx:1-179](file://src/components/ASTTree.tsx#L1-L179)
-- [src/components/SubFormulaManager.tsx:1-201](file://src/components/SubFormulaManager.tsx#L1-L201)
-- [src/components/FormulaReferenceSelector.tsx:1-132](file://src/components/FormulaReferenceSelector.tsx#L1-L132)
-- [src/lib/types.ts:1-51](file://src/lib/types.ts#L1-L51)
-- [src/lib/storage.ts:1-50](file://src/lib/storage.ts#L1-L50)
-- [src/lib/parser.ts:1-159](file://src/lib/parser.ts#L1-L159)
-- [src/lib/mapper.ts:1-89](file://src/lib/mapper.ts#L1-L89)
-- [src/lib/importExport.ts:1-101](file://src/lib/importExport.ts#L1-L101)
-- [src/lib/utils.ts:1-7](file://src/lib/utils.ts#L1-L7)
+- [src/components/CloudSyncButton.tsx:1-206](file://src/components/CloudSyncButton.tsx#L1-L206)
+- [src/components/CloudSyncModal.tsx:1-390](file://src/components/CloudSyncModal.tsx#L1-L390)
+- [src/lib/cloud/index.ts:1-20](file://src/lib/cloud/index.ts#L1-L20)
+- [cloud/cloudflare-workers/index.ts:1-319](file://cloud/cloudflare-workers/index.ts#L1-L319)
+- [cloud/cloudflare-workers/wrangler.toml:1-13](file://cloud/cloudflare-workers/wrangler.toml#L1-L13)
 
-章节来源
+**章节来源**
 - [src/app/page.tsx:1-707](file://src/app/page.tsx#L1-L707)
 - [src/lib/types.ts:1-51](file://src/lib/types.ts#L1-L51)
+- [src/lib/cloud/index.ts:1-20](file://src/lib/cloud/index.ts#L1-L20)
 
 ## 核心组件
 本节概述各模块的职责与对外接口。
@@ -119,42 +149,46 @@ Parser --> Types
 - 通用工具（src/lib/utils.ts）
   - 提供cn函数，用于Tailwind合并类名。
 
-- 页面与组件（src/app/page.tsx、src/components/*）
+- **新增**：云存储库（src/lib/cloud/index.ts）
+  - 提供云存储相关类型、工厂和配置管理器的统一导出接口。
+
+- **新增**：页面与组件（src/app/page.tsx、src/components/*）
   - 应用入口负责状态管理、URL同步、数据导入导出；组件负责UI交互与可视化。
 
-章节来源
+**章节来源**
 - [src/lib/types.ts:1-51](file://src/lib/types.ts#L1-L51)
 - [src/lib/storage.ts:1-50](file://src/lib/storage.ts#L1-L50)
 - [src/lib/parser.ts:1-159](file://src/lib/parser.ts#L1-L159)
 - [src/lib/mapper.ts:1-89](file://src/lib/mapper.ts#L1-L89)
 - [src/lib/importExport.ts:1-101](file://src/lib/importExport.ts#L1-L101)
 - [src/lib/utils.ts:1-7](file://src/lib/utils.ts#L1-L7)
+- [src/lib/cloud/index.ts:1-20](file://src/lib/cloud/index.ts#L1-L20)
 
 ## 架构总览
-系统采用“数据模型 + 解析/映射 + 可视化 + 本地存储 + 导入导出”的分层架构。页面通过组件驱动状态，组件调用库层API完成解析与映射，最终以渲染器与AST树呈现。
+系统采用"数据模型 + 解析/映射 + 可视化 + 本地存储 + 导入导出 + 云存储"的分层架构。页面通过组件驱动状态，组件调用库层API完成解析与映射，最终以渲染器与AST树呈现。新增的云存储层提供了基于Cloudflare Workers的远程数据持久化能力。
 
 ```mermaid
 sequenceDiagram
 participant UI as "页面/组件"
-participant Parser as "FormulaParser"
-participant Mapper as "VariableMapper"
-participant Renderer as "FormulaRenderer/ASTTree"
-participant Storage as "localStorage"
-UI->>Parser : parse(formula)
-Parser-->>UI : ASTNode
-UI->>Mapper : createMapping(eng, chn)
-Mapper-->>UI : VariableMapping
-UI->>Renderer : 渲染公式/变量映射/AST
-UI->>Storage : saveData(groups)/loadData()
-Storage-->>UI : FormulaGroup[]
+participant CloudSync as "CloudSyncButton/Modal"
+participant Provider as "CloudflareStorageProvider"
+participant Worker as "Cloudflare Workers"
+participant KV as "Cloudflare KV"
+UI->>CloudSync : 配置云端同步
+CloudSync->>Provider : 创建存储提供者
+Provider->>Worker : 发送HTTP请求
+Worker->>KV : 存储/读取数据
+KV-->>Worker : 返回数据
+Worker-->>Provider : JSON响应
+Provider-->>CloudSync : 操作结果
+CloudSync-->>UI : 更新状态
 ```
 
-图表来源
-- [src/lib/parser.ts:12-22](file://src/lib/parser.ts#L12-L22)
-- [src/lib/mapper.ts:52-70](file://src/lib/mapper.ts#L52-L70)
-- [src/components/FormulaRenderer.tsx:27-116](file://src/components/FormulaRenderer.tsx#L27-L116)
-- [src/components/ASTTree.tsx:11-112](file://src/components/ASTTree.tsx#L11-L112)
-- [src/lib/storage.ts:5-25](file://src/lib/storage.ts#L5-L25)
+**图表来源**
+- [src/components/CloudSyncButton.tsx:42-103](file://src/components/CloudSyncButton.tsx#L42-L103)
+- [src/components/CloudSyncModal.tsx:91-200](file://src/components/CloudSyncModal.tsx#L91-L200)
+- [src/lib/cloud/providers/cloudflare.ts](file://src/lib/cloud/providers/cloudflare.ts)
+- [cloud/cloudflare-workers/index.ts:44-92](file://cloud/cloudflare-workers/index.ts#L44-L92)
 
 ## 详细组件分析
 
@@ -172,7 +206,7 @@ Storage-->>UI : FormulaGroup[]
   - 作为跨模块契约，避免直接修改内部字段，优先使用工厂方法与转换函数
   - 在导入导出时严格遵循上述结构，确保兼容性
 
-章节来源
+**章节来源**
 - [src/lib/types.ts:1-51](file://src/lib/types.ts#L1-L51)
 
 ### 本地存储API（src/lib/storage.ts）
@@ -190,7 +224,7 @@ Storage-->>UI : FormulaGroup[]
   - 仅在浏览器环境可用，服务端调用会直接返回默认值
   - 保存前需确保数据结构符合类型定义
 
-章节来源
+**章节来源**
 - [src/lib/storage.ts:5-49](file://src/lib/storage.ts#L5-L49)
 
 ### 公式解析器API（src/lib/parser.ts）
@@ -239,11 +273,11 @@ Paren --> Done
 Error --> End(["异常退出"])
 ```
 
-图表来源
+**图表来源**
 - [src/lib/parser.ts:24-68](file://src/lib/parser.ts#L24-L68)
 - [src/lib/parser.ts:78-157](file://src/lib/parser.ts#L78-L157)
 
-章节来源
+**章节来源**
 - [src/lib/parser.ts:1-159](file://src/lib/parser.ts#L1-L159)
 
 ### 变量映射器API（src/lib/mapper.ts）
@@ -266,7 +300,7 @@ Error --> End(["异常退出"])
   - 提取变量：O(n)
   - 映射生成：O(min(m,n))
 
-章节来源
+**章节来源**
 - [src/lib/mapper.ts:1-89](file://src/lib/mapper.ts#L1-L89)
 
 ### 导入导出API（src/lib/importExport.ts）
@@ -311,11 +345,11 @@ IE->>IE : importData(result)
 IE-->>UI : FormulaGroup[] 或抛错
 ```
 
-图表来源
+**图表来源**
 - [src/lib/importExport.ts:80-100](file://src/lib/importExport.ts#L80-L100)
 - [src/lib/importExport.ts:43-75](file://src/lib/importExport.ts#L43-L75)
 
-章节来源
+**章节来源**
 - [src/lib/importExport.ts:1-101](file://src/lib/importExport.ts#L1-L101)
 
 ### 工具函数API（src/lib/utils.ts）
@@ -326,8 +360,19 @@ IE-->>UI : FormulaGroup[] 或抛错
 - 使用示例
   - const className = cn("bg-blue-500", isActive && "text-white");
 
-章节来源
+**章节来源**
 - [src/lib/utils.ts:1-7](file://src/lib/utils.ts#L1-L7)
+
+### 云存储库API（src/lib/cloud/index.ts）
+- 统一导出接口
+  - 类型导出：StorageConfig、CloudflareConfig、CloudStorageData、StorageResult、CloudStorageProvider
+  - 枚举导出：StorageProviderType、StorageError
+  - 工厂导出：StorageProviderFactory、CloudConfigManager
+  - 基础提供者：BaseStorageProvider
+  - Cloudflare提供者：CloudflareStorageProvider
+
+**章节来源**
+- [src/lib/cloud/index.ts:1-20](file://src/lib/cloud/index.ts#L1-L20)
 
 ### 组件API
 
@@ -348,7 +393,7 @@ IE-->>UI : FormulaGroup[] 或抛错
 - 关键流程
   - 展开公式 -> VariableMapper.createMapping -> FormulaParser.parse -> 渲染AST与公式展示
 
-章节来源
+**章节来源**
 - [src/components/FormulaList.tsx:12-139](file://src/components/FormulaList.tsx#L12-L139)
 - [src/components/FormulaList.tsx:151-387](file://src/components/FormulaList.tsx#L151-L387)
 
@@ -367,7 +412,7 @@ IE-->>UI : FormulaGroup[] 或抛错
 - 关键流程
   - tokenizeFormula -> 为变量分配颜色 -> 渲染组件
 
-章节来源
+**章节来源**
 - [src/components/FormulaRenderer.tsx:6-116](file://src/components/FormulaRenderer.tsx#L6-L116)
 - [src/components/FormulaRenderer.tsx:118-169](file://src/components/FormulaRenderer.tsx#L118-L169)
 
@@ -384,7 +429,7 @@ IE-->>UI : FormulaGroup[] 或抛错
 - 关键流程
   - astToLatex -> 生成LaTeX -> 渲染器渲染 -> 变量说明展示
 
-章节来源
+**章节来源**
 - [src/components/ASTTree.tsx:6-112](file://src/components/ASTTree.tsx#L6-L112)
 - [src/components/ASTTree.tsx:114-179](file://src/components/ASTTree.tsx#L114-L179)
 
@@ -398,7 +443,7 @@ IE-->>UI : FormulaGroup[] 或抛错
   - 自动生成id（sub_前缀）
   - 校验必填字段
 
-章节来源
+**章节来源**
 - [src/components/SubFormulaManager.tsx:7-201](file://src/components/SubFormulaManager.tsx#L7-L201)
 
 #### 变量引用选择器（src/components/FormulaReferenceSelector.tsx）
@@ -414,8 +459,39 @@ IE-->>UI : FormulaGroup[] 或抛错
   - 支持子公式与外部公式两种引用
   - 选中后回调onChange
 
-章节来源
+**章节来源**
 - [src/components/FormulaReferenceSelector.tsx:6-132](file://src/components/FormulaReferenceSelector.tsx#L6-L132)
+
+#### 云端同步按钮（src/components/CloudSyncButton.tsx）
+- 属性
+  - groups: FormulaGroup[]
+  - setGroups: (groups: FormulaGroup[]) => void
+  - setSelectedGroupId: (id: string | null) => void
+  - setSelectedFormulaId: (id: string | null) => void
+  - setShowCloudSyncModal: (show: boolean) => void
+
+- 行为
+  - 管理Cloudflare Workers配置状态
+  - 提供保存到云端、从云端加载、版本历史查看功能
+  - 支持API密钥认证和命名空间配置
+
+**章节来源**
+- [src/components/CloudSyncButton.tsx:1-206](file://src/components/CloudSyncButton.tsx#L1-L206)
+
+#### 云端同步配置模态框（src/components/CloudSyncModal.tsx）
+- 属性
+  - isOpen: boolean
+  - onClose: () => void
+  - groups: FormulaGroup[]
+  - onLoadData: (groups: FormulaGroup[]) => void
+
+- 行为
+  - 提供Cloudflare Workers配置界面
+  - 支持连接测试、配置保存、数据同步
+  - 管理存储提供者选择和配置状态
+
+**章节来源**
+- [src/components/CloudSyncModal.tsx:1-390](file://src/components/CloudSyncModal.tsx#L1-L390)
 
 #### 应用入口（src/app/page.tsx）
 - 职责
@@ -428,17 +504,140 @@ IE-->>UI : FormulaGroup[] 或抛错
 - 关键流程
   - 初始化 -> 加载本地数据 -> 根据URL恢复展开状态 -> 用户操作 -> 保存到localStorage
 
-章节来源
+**章节来源**
 - [src/app/page.tsx:14-707](file://src/app/page.tsx#L14-L707)
+
+## Cloudflare Workers API
+
+### Worker服务端点
+Cloudflare Workers提供RESTful API接口，支持完整的云端数据存储功能。
+
+#### CORS配置
+- 完整的CORS头配置
+  - Access-Control-Allow-Origin: '*'（允许所有来源）
+  - Access-Control-Allow-Methods: GET, POST, DELETE, OPTIONS, PUT
+  - Access-Control-Allow-Headers: Content-Type, Authorization, X-Requested-With
+  - Access-Control-Max-Age: 86400（预检请求缓存24小时）
+  - Access-Control-Allow-Credentials: false
+
+#### 健康检查
+- 端点：/health
+- 方法：GET
+- 响应：{ status: 'ok', timestamp: number }
+
+#### 数据操作API
+- 保存数据：POST /save
+  - 请求体：{ key: string, data: unknown, comment?: string }
+  - 响应：{ success: boolean, message?: string, versionId: string, timestamp: number }
+
+- 加载数据：GET /load?key=string
+  - 查询参数：key（必需）
+  - 响应：{ success: boolean, data: unknown, versionId: string, savedAt: string, comment?: string }
+
+- 删除数据：DELETE /delete?key=string
+  - 查询参数：key（必需）
+  - 响应：{ success: boolean, message: string }
+
+- 列出键：GET /list
+  - 响应：{ success: boolean, keys: string[] }
+
+#### 版本管理API
+- 获取版本列表：GET /versions?key=string
+  - 查询参数：key（必需）
+  - 响应：{ success: boolean, versions: Array<{ versionId: string, savedAt: string, comment?: string }> }
+
+- 加载指定版本：GET /load-version?key=string&versionId=string
+  - 查询参数：key（必需）、versionId（必需）
+  - 响应：{ success: boolean, data: unknown, versionId: string, savedAt: string, comment?: string }
+
+#### 预检请求处理
+- OPTIONS请求：所有端点均支持OPTIONS方法
+- 状态码：200
+- 包含完整CORS头
+
+#### 认证机制
+- API密钥支持（可选）
+- 请求头：Authorization: Bearer {API_KEY}
+- 配置方式：在wrangler.toml中设置vars.API_KEY
+
+#### 版本控制
+- 版本前缀：versions:{key}:
+- 最大版本数：100个
+- 自动清理旧版本
+- 版本按时间戳排序
+
+**章节来源**
+- [cloud/cloudflare-workers/index.ts:31-92](file://cloud/cloudflare-workers/index.ts#L31-L92)
+- [cloud/cloudflare-workers/index.ts:97-298](file://cloud/cloudflare-workers/index.ts#L97-L298)
+- [cloud/cloudflare-workers/index.ts:144-161](file://cloud/cloudflare-workers/index.ts#L144-L161)
+
+### 云存储客户端API
+
+#### Cloudflare存储提供者
+- 类：CloudflareStorageProvider
+- 构造函数：CloudflareStorageProvider(config: CloudflareConfig)
+- 方法：
+  - save(key: string, data: CloudStorageData): Promise<StorageResult>
+  - load(key: string): Promise<StorageResult>
+  - list(): Promise<StorageResult>
+  - delete(key: string): Promise<StorageResult>
+  - getVersions(key: string): Promise<StorageResult>
+  - loadVersion(key: string, versionId: string): Promise<StorageResult>
+  - testConnection(): Promise<StorageResult>
+
+#### 配置管理
+- CloudConfigManager
+  - save(config: SavedCloudConfig): void
+  - load(): SavedCloudConfig | null
+  - clear(): void
+
+#### 存储提供者工厂
+- StorageProviderFactory
+  - createProvider(type: StorageProviderType, config: StorageConfig): CloudStorageProvider
+
+**章节来源**
+- [src/lib/cloud/providers/cloudflare.ts](file://src/lib/cloud/providers/cloudflare.ts)
+- [src/lib/cloud/factory.ts](file://src/lib/cloud/factory.ts)
+- [src/lib/cloud/types.ts](file://src/lib/cloud/types.ts)
+
+### 部署配置
+
+#### Wrangler配置
+- 配置文件：cloudflare-workers/wrangler.toml
+- 主要设置：
+  - name: "formula-mapper-sync"
+  - main: "index.ts"
+  - compatibility_date: "2024-01-01"
+  - kv_namespaces: 绑定FORMULA_DATA命名空间
+  - vars: 可选API_KEY配置
+
+#### 部署步骤
+1. 创建KV命名空间：`wrangler kv:namespace create "FORMULA_DATA"`
+2. 更新wrangler.toml中的namespace_id
+3. 安装依赖：`npm install`
+4. 部署：`wrangler deploy`
+
+#### 部署检查清单
+- [ ] 已创建KV命名空间
+- [ ] 已更新namespace ID
+- [ ] 已安装依赖
+- [ ] Worker代码包含CORS配置
+- [ ] 已部署到生产环境
+
+**章节来源**
+- [cloud/cloudflare-workers/wrangler.toml:1-13](file://cloud/cloudflare-workers/wrangler.toml#L1-L13)
+- [cloud/DEPLOYMENT_CHECKLIST.md:1-96](file://cloud/DEPLOYMENT_CHECKLIST.md#L1-L96)
 
 ## 依赖分析
 - 内部依赖
   - 组件依赖库层API：FormulaList依赖Parser与Mapper；FormulaRenderer/ASTTree依赖Types
   - 页面依赖库层API：storage与importExport
+  - **新增**：CloudSync组件依赖cloud库的存储提供者
 - 外部依赖
   - katex：LaTeX渲染
   - radix-ui：UI控件
   - tailwind相关：样式与类名合并
+  - **新增**：Cloudflare Workers运行时API
 
 ```mermaid
 graph LR
@@ -454,22 +653,28 @@ SFM["SubFormulaManager.tsx"] --> Types
 FRS["FormulaReferenceSelector.tsx"] --> Types
 Page["page.tsx"] --> Storage
 Page --> ImportExport
+CloudLib["cloud/index.ts"] --> CloudFactory["cloud/factory.ts"]
+CloudLib --> CloudTypes["cloud/types.ts"]
+CloudLib --> CloudflareProvider["cloud/providers/cloudflare.ts"]
+CloudFactory --> CloudflareProvider
+CloudSync["CloudSyncButton.tsx"] --> CloudLib
+CloudModal["CloudSyncModal.tsx"] --> CloudLib
+WorkerIndex["cloudflare-workers/index.ts"] --> WorkerConfig["wrangler.toml"]
 ```
 
-图表来源
+**图表来源**
 - [src/lib/parser.ts:1-159](file://src/lib/parser.ts#L1-L159)
 - [src/lib/mapper.ts:1-89](file://src/lib/mapper.ts#L1-L89)
 - [src/lib/storage.ts:1-50](file://src/lib/storage.ts#L1-L50)
 - [src/lib/importExport.ts:1-101](file://src/lib/importExport.ts#L1-L101)
 - [src/lib/types.ts:1-51](file://src/lib/types.ts#L1-L51)
-- [src/components/FormulaList.tsx:1-387](file://src/components/FormulaList.tsx#L1-L387)
-- [src/components/FormulaRenderer.tsx:1-169](file://src/components/FormulaRenderer.tsx#L1-L169)
-- [src/components/ASTTree.tsx:1-179](file://src/components/ASTTree.tsx#L1-L179)
-- [src/components/SubFormulaManager.tsx:1-201](file://src/components/SubFormulaManager.tsx#L1-L201)
-- [src/components/FormulaReferenceSelector.tsx:1-132](file://src/components/FormulaReferenceSelector.tsx#L1-L132)
-- [src/app/page.tsx:1-707](file://src/app/page.tsx#L1-L707)
+- [src/lib/cloud/index.ts:1-20](file://src/lib/cloud/index.ts#L1-L20)
+- [src/components/CloudSyncButton.tsx:1-206](file://src/components/CloudSyncButton.tsx#L1-L206)
+- [src/components/CloudSyncModal.tsx:1-390](file://src/components/CloudSyncModal.tsx#L1-L390)
+- [cloud/cloudflare-workers/index.ts:1-319](file://cloud/cloudflare-workers/index.ts#L1-L319)
+- [cloud/cloudflare-workers/wrangler.toml:1-13](file://cloud/cloudflare-workers/wrangler.toml#L1-L13)
 
-章节来源
+**章节来源**
 - [package.json:15-34](file://package.json#L15-L34)
 
 ## 性能考虑
@@ -484,6 +689,11 @@ Page --> ImportExport
 - 存储
   - localStorage序列化/反序列化成本低，但受浏览器限制
   - 大数据量建议分批保存或压缩
+- **新增**：Cloudflare Workers
+  - KV存储延迟：~10-50ms（取决于地理位置）
+  - 预检请求缓存：24小时减少重复预检
+  - 版本清理：自动维护最多100个版本
+  - 并发限制：Workers有内置的并发和内存限制
 
 ## 故障排查指南
 - 解析错误
@@ -499,20 +709,38 @@ Page --> ImportExport
 - 渲染失败
   - 症状：LaTeX渲染异常
   - 排查：确认KaTeX资源加载与LaTeX字符串合法性
+- **新增**：CORS错误
+  - 症状：浏览器控制台显示CORS错误
+  - 排查：确认Worker包含CORS头、OPTIONS预检返回200状态码
+  - 参考：CORS_SOLUTION_SUMMARY.md和CORS_TROUBLESHOOTING.md
+- **新增**：Cloudflare Workers连接失败
+  - 症状：无法连接到Worker或返回401错误
+  - 排查：确认Worker已部署、KV命名空间ID正确、API密钥配置
+  - 参考：DEPLOYMENT_CHECKLIST.md和QUICK_FIX.md
 
-章节来源
+**章节来源**
 - [src/lib/parser.ts:120-157](file://src/lib/parser.ts#L120-L157)
 - [src/lib/importExport.ts:43-75](file://src/lib/importExport.ts#L43-L75)
 - [src/components/ASTTree.tsx:124-142](file://src/components/ASTTree.tsx#L124-L142)
+- [cloud/CORS_SOLUTION_SUMMARY.md:1-154](file://cloud/CORS_SOLUTION_SUMMARY.md#L1-L154)
+- [cloud/CORS_TROUBLESHOOTING.md:1-247](file://cloud/CORS_TROUBLESHOOTING.md#L1-L247)
+- [cloud/DEPLOYMENT_CHECKLIST.md:1-96](file://cloud/DEPLOYMENT_CHECKLIST.md#L1-L96)
+- [cloud/QUICK_FIX.md:1-48](file://cloud/QUICK_FIX.md#L1-L48)
 
 ## 结论
-本API参考文档系统梳理了公式变量映射与可视化工具的核心接口与使用方法。通过清晰的数据模型、健壮的解析与映射、完善的导入导出与本地存储机制，以及直观的可视化组件，开发者可以快速集成并扩展功能。建议在生产环境中关注错误处理、性能优化与用户体验细节。
+本API参考文档系统梳理了公式变量映射与可视化工具的核心接口与使用方法，并新增了完整的Cloudflare Workers云存储解决方案。通过清晰的数据模型、健壮的解析与映射、完善的导入导出与本地存储机制、直观的可视化组件以及可靠的云端数据持久化能力，开发者可以快速集成并扩展功能。新增的云存储API提供了完整的CORS配置、版本管理和部署指导，确保跨域访问的安全性和可靠性。建议在生产环境中关注错误处理、性能优化与用户体验细节，充分利用Cloudflare Workers的全球边缘网络优势。
 
 ## 附录
 - 版本与运行
   - Next.js版本：参见package.json
   - LaTeX渲染依赖：katex
   - Tailwind样式：clsx与tailwind-merge
+  - **新增**：Cloudflare Workers运行时：Cloudflare KV、CORS支持
+- **新增**：相关文档
+  - CORS完整解决方案：cloud/CORS_SOLUTION_SUMMARY.md
+  - CORS详细排查指南：cloud/CORS_TROUBLESHOOTING.md
+  - 部署检查清单：cloud/DEPLOYMENT_CHECKLIST.md
+  - 快速修复指南：cloud/QUICK_FIX.md
 
-章节来源
+**章节来源**
 - [package.json:15-34](file://package.json#L15-L34)

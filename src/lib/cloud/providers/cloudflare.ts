@@ -31,6 +31,13 @@ export class CloudflareStorageProvider extends BaseStorageProvider {
         const url = `${this.cloudflareConfig.endpoint}/save`;
         console.log('[Cloudflare] Saving to:', url);
         
+        // 只包含定义的字段，避免 undefined 导致 JSON 格式错误
+        const requestBody: any = { key, data };
+        if (comment !== undefined) requestBody.comment = comment;
+        if (this.cloudflareConfig.namespaceId !== undefined) {
+          requestBody.namespaceId = this.cloudflareConfig.namespaceId;
+        }
+
         const response = await fetch(url, {
           method: 'POST',
           headers: {
@@ -39,12 +46,7 @@ export class CloudflareStorageProvider extends BaseStorageProvider {
               'Authorization': `Bearer ${this.cloudflareConfig.apiKey}`,
             }),
           },
-          body: JSON.stringify({
-            key,
-            data,
-            comment,
-            namespaceId: this.cloudflareConfig.namespaceId,
-          }),
+          body: JSON.stringify(requestBody),
         });
 
         console.log('[Cloudflare] Response status:', response.status);

@@ -100,7 +100,19 @@ async function handleSave(request: Request, env: Env): Promise<Response> {
   }
 
   try {
-    const body = await request.json() as { key: string; data: unknown; comment?: string };
+    // 先获取原始文本用于调试
+    const rawBody = await request.text();
+    console.log('[handleSave] Raw body:', rawBody.substring(0, 200));
+    
+    // 尝试解析 JSON
+    let body;
+    try {
+      body = JSON.parse(rawBody);
+    } catch (parseError) {
+      console.error('[handleSave] JSON parse error:', parseError);
+      return errorResponse(`JSON parse error: ${parseError instanceof Error ? parseError.message : 'Unknown error'}`, 400);
+    }
+    
     const { key, data, comment } = body;
 
     if (!key) {
@@ -134,7 +146,8 @@ async function handleSave(request: Request, env: Env): Promise<Response> {
       timestamp,
     });
   } catch (error) {
-    return errorResponse('Invalid JSON', 400);
+    console.error('[handleSave] Error:', error);
+    return errorResponse(`Server error: ${error instanceof Error ? error.message : 'Unknown error'}`, 500);
   }
 }
 
