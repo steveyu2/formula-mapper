@@ -9,6 +9,8 @@
  * 5. 部署: wrangler deploy
  */
 
+import type { D1Database, KVNamespace } from '@cloudflare/workers-types';
+
 export interface Env {
   DB: D1Database;
   FORMULA_DATA: KVNamespace;
@@ -242,8 +244,8 @@ async function handleGetVersions(url: URL, env: Env): Promise<Response> {
   const list = await env.FORMULA_DATA.list({ prefix });
   
   const versions = await Promise.all(
-    list.keys.map(async (k) => {
-      const value = await env.FORMULA_DATA.get(k.name);
+    list.keys.map(async ({ name }: { name: string }) => {
+      const value = await env.FORMULA_DATA.get(name);
       if (!value) return null;
       
       try {
@@ -260,8 +262,10 @@ async function handleGetVersions(url: URL, env: Env): Promise<Response> {
   );
 
   const validVersions = versions
-    .filter((v): v is NonNullable<typeof v> => v !== null)
-    .sort((a, b) => new Date(b.savedAt).getTime() - new Date(a.savedAt).getTime());
+    .filter((v: typeof versions[number]): v is NonNullable<typeof versions[number]> => v !== null)
+    .sort((a: NonNullable<typeof versions[number]>, b: NonNullable<typeof versions[number]>) => 
+      new Date(b.savedAt).getTime() - new Date(a.savedAt).getTime()
+    );
 
   return jsonResponse({ 
     success: true, 

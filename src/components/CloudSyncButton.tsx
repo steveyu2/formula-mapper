@@ -76,20 +76,27 @@ export function CloudSyncButton({
   const handleSaveWithPassword = async () => {
     if (!config) return;
     
+    console.log('[CloudSync] 检查是否需要密码...');
+    
     try {
       // 先检查 Worker 是否需要密码
       const response = await fetch(`${config.endpoint}/need-password`);
       const result = await response.json();
       
+      console.log('[CloudSync] needPassword 结果:', result);
+      
       if (result.needPassword) {
         // 需要密码，弹出输入框
+        console.log('[CloudSync] 弹出密码输入框');
         setShowPasswordDialog(true);
       } else {
         // 不需要密码，直接保存
+        console.log('[CloudSync] 不需要密码，直接保存');
         handleSaveToCloud();
       }
     } catch (error) {
       // 如果检测失败，仍然弹出密码框
+      console.log('[CloudSync] 检测失败，弹出密码框:', error);
       setShowPasswordDialog(true);
     }
   };
@@ -231,7 +238,7 @@ export function CloudSyncButton({
 
       {/* 密码输入对话框 */}
       {showPasswordDialog && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[200]">
           <div className="bg-white rounded-2xl shadow-2xl p-6 w-full max-w-md mx-4">
             <h3 className="text-lg font-semibold mb-4">输入写入密码</h3>
             <p className="text-sm text-gray-600 mb-4">
