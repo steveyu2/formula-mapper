@@ -45,10 +45,6 @@ export class CloudflareStorageProvider extends BaseStorageProvider {
             ...(this.cloudflareConfig.apiKey && {
               'Authorization': `Bearer ${this.cloudflareConfig.apiKey}`,
             }),
-            // 如果配置了写入密码，添加到请求头
-            ...(this.cloudflareConfig.writePassword && {
-              'X-Write-Password': this.cloudflareConfig.writePassword,
-            }),
           },
           body: JSON.stringify(requestBody),
         });
