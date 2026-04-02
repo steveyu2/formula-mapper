@@ -12,15 +12,15 @@
 // D1Database 类型定义
 declare global {
   interface D1Database {
-    prepare(query: string): D1PreparedStatement;
+    prepare(_query: string): D1PreparedStatement;
     dump(): Promise<ArrayBuffer>;
-    batch<T = unknown>(statements: D1PreparedStatement[]): Promise<D1Result<T>[]>;
-    exec<T = unknown>(query: string): Promise<D1Result<T>>;
+    batch<T = unknown>(_statements: D1PreparedStatement[]): Promise<D1Result<T>[]>;
+    exec<T = unknown>(_query: string): Promise<D1Result<T>>;
   }
 
   interface D1PreparedStatement {
-    bind(...values: unknown[]): D1PreparedStatement;
-    first<T = unknown>(colName?: string): Promise<T | null>;
+    bind(..._values: unknown[]): D1PreparedStatement;
+    first<T = unknown>(_colName?: string): Promise<T | null>;
     run<T = unknown>(): Promise<D1Result<T>>;
     all<T = unknown>(): Promise<D1Result<T>>;
     raw<T = unknown>(): Promise<T[][]>;

@@ -17,6 +17,7 @@ import {
   SavedCloudConfig,
 } from '@/lib/cloud';
 import { FormulaGroup } from '@/lib/types';
+import { ConfirmDialog } from './ConfirmDialog';
 
 interface CloudSyncModalProps {
   isOpen: boolean;
@@ -49,6 +50,8 @@ export function CloudSyncModal({ isOpen, onClose, groups, onLoadData }: CloudSyn
   const [messageType, setMessageType] = useState<'success' | 'error'>('success');
   const [hasConfig, setHasConfig] = useState(false);
   const [showProviderSelector, setShowProviderSelector] = useState(true);
+  const [showLoadConfirm, setShowLoadConfirm] = useState(false);
+  const [configJustSaved, setConfigJustSaved] = useState(false);
 
   // 加载已保存的配置
   useEffect(() => {
@@ -103,7 +106,7 @@ export function CloudSyncModal({ isOpen, onClose, groups, onLoadData }: CloudSyn
     }
   };
 
-  const saveConfig = () => {
+  const saveConfig = async () => {
     if (!endpoint.trim()) {
       showMessage('请输入服务端点 URL', 'error');
       return;
@@ -113,9 +116,24 @@ export function CloudSyncModal({ isOpen, onClose, groups, onLoadData }: CloudSyn
       const config = getProviderConfig();
       CloudConfigManager.save(config);
       setHasConfig(true);
+      setConfigJustSaved(true);
       showMessage('配置已保存', 'success');
+      
+      // 询问是否加载远程数据
+      setTimeout(() => {
+        setShowLoadConfirm(true);
+      }, 500);
     } catch (error) {
       showMessage(error instanceof Error ? error.message : '保存配置失败', 'error');
+    }
+  };
+
+  const handleLoadConfirm = async (shouldLoad: boolean) => {
+    setShowLoadConfirm(false);
+    setConfigJustSaved(false);
+    
+    if (shouldLoad) {
+      await loadFromCloud();
     }
   };
 
@@ -339,14 +357,16 @@ export function CloudSyncModal({ isOpen, onClose, groups, onLoadData }: CloudSyn
             >
               {isLoading ? '测试中...' : '测试连接'}
             </Button>
-            <Button
-              variant="outline"
-              onClick={saveConfig}
-              disabled={isLoading}
-              size="sm"
-            >
-              保存配置
-            </Button>
+            {!hasConfig && (
+              <Button
+                onClick={saveConfig}
+                disabled={isLoading}
+                size="sm"
+                className="bg-blue-600 hover:bg-blue-700 text-white"
+              >
+                保存配置
+              </Button>
+            )}
             <Button
               variant="outline"
               onClick={switchProvider}
@@ -368,27 +388,41 @@ export function CloudSyncModal({ isOpen, onClose, groups, onLoadData }: CloudSyn
             )}
           </div>
 
-          <div className="border-t pt-4 mt-4">
-            <div className="flex gap-2">
-              <Button
-                onClick={saveToCloud}
-                disabled={isLoading}
-                className="flex-1"
-              >
-                {isLoading ? '保存中...' : '保存到云端'}
-              </Button>
-              <Button
-                onClick={loadFromCloud}
-                disabled={isLoading}
-                variant="secondary"
-                className="flex-1"
-              >
-                {isLoading ? '加载中...' : '从云端加载'}
-              </Button>
+          {hasConfig && (
+            <div className="border-t pt-4 mt-4">
+              <div className="flex gap-2">
+                <Button
+                  onClick={saveToCloud}
+                  disabled={isLoading}
+                  className="flex-1"
+                >
+                  {isLoading ? '保存中...' : '保存到云端'}
+                </Button>
+                <Button
+                  onClick={loadFromCloud}
+                  disabled={isLoading}
+                  variant="secondary"
+                  className="flex-1"
+                >
+                  {isLoading ? '加载中...' : '从云端加载'}
+                </Button>
+              </div>
             </div>
-          </div>
+          )}
         </div>
       </DialogContent>
+
+      {/* 保存配置后询问是否加载 */}
+      <ConfirmDialog
+        isOpen={showLoadConfirm}
+        onCancel={() => handleLoadConfirm(false)}
+        onConfirm={() => handleLoadConfirm(true)}
+        title="配置已保存"
+        message="是否立即从云端加载数据？"
+        confirmText="加载云端数据"
+        cancelText="稍后再说"
+        variant="default"
+      />
     </Dialog>
   );
 }
