@@ -31,8 +31,10 @@ export interface Env {
 // CORS 配置
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Methods': 'GET, POST, DELETE, OPTIONS',
-  'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+  'Access-Control-Allow-Methods': 'GET, POST, DELETE, OPTIONS, PUT',
+  'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Requested-With',
+  'Access-Control-Max-Age': '86400',
+  'Access-Control-Allow-Credentials': 'false',
 };
 
 // 版本历史配置
@@ -42,7 +44,10 @@ const MAX_VERSIONS = 100; // 最多保留100个版本
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
     if (request.method === 'OPTIONS') {
-      return new Response(null, { headers: corsHeaders });
+      return new Response(null, { 
+        status: 200,
+        headers: corsHeaders 
+      });
     }
 
     const url = new URL(request.url);
