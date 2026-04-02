@@ -30,6 +30,7 @@ export function CloudSyncButton({
   const [showVersionHistory, setShowVersionHistory] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [showPasswordDialog, setShowPasswordDialog] = useState(false);
 
   useEffect(() => {
     const saved = localStorage.getItem('formulaMapper_cloudConfig');
@@ -39,7 +40,7 @@ export function CloudSyncButton({
     }
   }, []);
 
-  const handleSaveToCloud = async () => {
+  const handleSaveToCloud = async (writePassword?: string) => {
     if (!config) return;
     
     setIsSaving(true);
@@ -50,6 +51,7 @@ export function CloudSyncButton({
         endpoint: config.endpoint,
         apiKey: config.apiKey,
         namespaceId: config.namespaceId,
+        writePassword,
       });
       
       const result = await provider.save('formula-data', {
@@ -69,6 +71,16 @@ export function CloudSyncButton({
     } finally {
       setIsSaving(false);
     }
+  };
+
+  const handleSaveWithPassword = () => {
+    // 先显示密码输入对话框
+    setShowPasswordDialog(true);
+  };
+
+  const handlePasswordSubmit = (password: string) => {
+    setShowPasswordDialog(false);
+    handleSaveToCloud(password || undefined);
   };
 
   const handleLoadFromCloud = async () => {
@@ -138,7 +150,7 @@ export function CloudSyncButton({
 
         <div className="absolute top-full mt-2 right-0 bg-white border border-gray-200 rounded-xl shadow-lg py-2 min-w-[160px] z-50 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all">
           <button
-            onClick={handleSaveToCloud}
+            onClick={handleSaveWithPassword}
             disabled={isSaving}
             className="w-full px-4 py-2 text-left hover:bg-blue-50 flex items-center gap-3 transition-colors text-sm disabled:opacity-50 disabled:cursor-not-allowed"
           >
@@ -200,6 +212,46 @@ export function CloudSyncButton({
         config={config}
         onLoadVersion={handleLoadVersion}
       />
+
+      {/* 密码输入对话框 */}
+      {showPasswordDialog && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-2xl shadow-2xl p-6 w-full max-w-md mx-4">
+            <h3 className="text-lg font-semibold mb-4">输入写入密码</h3>
+            <p className="text-sm text-gray-600 mb-4">
+              保存到云端需要输入写入密码
+            </p>
+            <input
+              type="password"
+              placeholder="请输入写入密码"
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 mb-4"
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  handlePasswordSubmit((e.target as HTMLInputElement).value);
+                }
+              }}
+              autoFocus
+            />
+            <div className="flex gap-2">
+              <button
+                onClick={() => setShowPasswordDialog(false)}
+                className="flex-1 px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors"
+              >
+                取消
+              </button>
+              <button
+                onClick={() => {
+                  const input = document.querySelector('input[type="password"]') as HTMLInputElement;
+                  handlePasswordSubmit(input?.value || '');
+                }}
+                className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+              >
+                确认保存
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </>
   );
 }
