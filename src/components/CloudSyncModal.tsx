@@ -1,7 +1,6 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { createPortal } from 'react-dom';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -309,8 +308,33 @@ export function CloudSyncModal({ isOpen, onClose, groups, onLoadData }: CloudSyn
   const currentProvider = PROVIDER_OPTIONS.find(p => p.type === selectedProvider);
 
   return (
-    <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-[500px]">
+    <Dialog 
+      open={isOpen} 
+      onOpenChange={(open) => {
+        // 如果密码对话框打开，阻止关闭
+        if (!open && showPasswordDialog) {
+          return;
+        }
+        onClose();
+      }}
+      // 密码对话框打开时禁用模态行为
+      modal={!showPasswordDialog}
+    >
+      <DialogContent 
+        className="sm:max-w-[500px]"
+        onInteractOutside={(e) => {
+          // 密码对话框打开时阻止关闭
+          if (showPasswordDialog) {
+            e.preventDefault();
+          }
+        }}
+        onEscapeKeyDown={(e) => {
+          // 密码对话框打开时阻止关闭
+          if (showPasswordDialog) {
+            e.preventDefault();
+          }
+        }}
+      >
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             {currentProvider?.icon}
@@ -442,29 +466,15 @@ export function CloudSyncModal({ isOpen, onClose, groups, onLoadData }: CloudSyn
         </div>
       </DialogContent>
 
-      {/* 密码输入对话框 - 使用 Portal 渲染到 body 避免被 Dialog 遮罩层阻挡 */}
-      {showPasswordDialog && createPortal(
+      {/* 密码输入对话框 - 直接渲染在 Dialog 内部 */}
+      {showPasswordDialog && (
         <div 
-          className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[1000] pointer-events-auto"
-          onClick={(e) => {
-            e.preventDefault();
-            e.stopPropagation();
-          }}
-          onMouseDown={(e) => {
-            e.preventDefault();
-            e.stopPropagation();
-          }}
+          className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[60]"
+          onClick={(e) => e.stopPropagation()}
         >
           <div 
-            className="bg-white rounded-2xl shadow-2xl p-6 w-full max-w-md mx-4 pointer-events-auto"
-            onClick={(e) => {
-              e.preventDefault();
-              e.stopPropagation();
-            }}
-            onMouseDown={(e) => {
-              e.preventDefault();
-              e.stopPropagation();
-            }}
+            className="bg-white rounded-2xl shadow-2xl p-6 w-full max-w-sm mx-4"
+            onClick={(e) => e.stopPropagation()}
           >
             <h3 className="text-lg font-semibold mb-4">输入写入密码</h3>
             <p className="text-sm text-gray-600 mb-4">
@@ -473,62 +483,41 @@ export function CloudSyncModal({ isOpen, onClose, groups, onLoadData }: CloudSyn
             <input
               type="password"
               placeholder="请输入写入密码"
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 mb-4 pointer-events-auto"
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 mb-4"
               onKeyDown={(e) => {
                 if (e.key === 'Enter') {
-                  e.preventDefault();
                   e.stopPropagation();
                   handlePasswordSubmit((e.target as HTMLInputElement).value);
                 }
                 if (e.key === 'Escape') {
-                  e.preventDefault();
                   e.stopPropagation();
                 }
               }}
-              onClick={(e) => {
-                e.preventDefault();
-                e.stopPropagation();
-              }}
-              onMouseDown={(e) => {
-                e.preventDefault();
-                e.stopPropagation();
-              }}
               autoFocus
             />
-            <div className="flex gap-2 pointer-events-auto">
+            <div className="flex gap-2">
               <button
                 onClick={(e) => {
-                  e.preventDefault();
                   e.stopPropagation();
                   setShowPasswordDialog(false);
                 }}
-                onMouseDown={(e) => {
-                  e.preventDefault();
-                  e.stopPropagation();
-                }}
-                className="flex-1 px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors pointer-events-auto"
+                className="flex-1 px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors"
               >
                 取消
               </button>
               <button
                 onClick={(e) => {
-                  e.preventDefault();
                   e.stopPropagation();
                   const input = document.querySelector('input[type="password"]') as HTMLInputElement;
                   handlePasswordSubmit(input?.value || '');
                 }}
-                onMouseDown={(e) => {
-                  e.preventDefault();
-                  e.stopPropagation();
-                }}
-                className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors pointer-events-auto"
+                className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
               >
                 确认保存
               </button>
             </div>
           </div>
-        </div>,
-        document.body
+        </div>
       )}
     </Dialog>
   );
