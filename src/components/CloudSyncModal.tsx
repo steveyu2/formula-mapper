@@ -469,7 +469,7 @@ export function CloudSyncModal({ isOpen, onClose, groups, onLoadData }: CloudSyn
       {/* 密码输入对话框 - 直接渲染在 Dialog 内部 */}
       {showPasswordDialog && (
         <div 
-          className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[60]"
+          className="fixed inset-0 bg-black bg-opacity-85 flex items-center justify-center z-[60]"
           onClick={(e) => e.stopPropagation()}
         >
           <div 
