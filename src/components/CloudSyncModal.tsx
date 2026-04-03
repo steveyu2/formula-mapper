@@ -446,11 +446,25 @@ export function CloudSyncModal({ isOpen, onClose, groups, onLoadData }: CloudSyn
       {showPasswordDialog && createPortal(
         <div 
           className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[1000] pointer-events-auto"
-          onClick={(e) => e.stopPropagation()}
+          onClick={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+          }}
+          onMouseDown={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+          }}
         >
           <div 
             className="bg-white rounded-2xl shadow-2xl p-6 w-full max-w-md mx-4 pointer-events-auto"
-            onClick={(e) => e.stopPropagation()}
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+            }}
+            onMouseDown={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+            }}
           >
             <h3 className="text-lg font-semibold mb-4">输入写入密码</h3>
             <p className="text-sm text-gray-600 mb-4">
@@ -462,17 +476,35 @@ export function CloudSyncModal({ isOpen, onClose, groups, onLoadData }: CloudSyn
               className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 mb-4 pointer-events-auto"
               onKeyDown={(e) => {
                 if (e.key === 'Enter') {
+                  e.preventDefault();
+                  e.stopPropagation();
                   handlePasswordSubmit((e.target as HTMLInputElement).value);
                 }
+                if (e.key === 'Escape') {
+                  e.preventDefault();
+                  e.stopPropagation();
+                }
               }}
-              onClick={(e) => e.stopPropagation()}
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+              }}
+              onMouseDown={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+              }}
               autoFocus
             />
             <div className="flex gap-2 pointer-events-auto">
               <button
                 onClick={(e) => {
+                  e.preventDefault();
                   e.stopPropagation();
                   setShowPasswordDialog(false);
+                }}
+                onMouseDown={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
                 }}
                 className="flex-1 px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors pointer-events-auto"
               >
@@ -480,9 +512,14 @@ export function CloudSyncModal({ isOpen, onClose, groups, onLoadData }: CloudSyn
               </button>
               <button
                 onClick={(e) => {
+                  e.preventDefault();
                   e.stopPropagation();
                   const input = document.querySelector('input[type="password"]') as HTMLInputElement;
                   handlePasswordSubmit(input?.value || '');
+                }}
+                onMouseDown={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
                 }}
                 className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors pointer-events-auto"
               >
