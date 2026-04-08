@@ -28,24 +28,27 @@ function HomeContent() {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(true);
   const [cloudLoading, setCloudLoading] = useState(false);
 
-  // 更新 URL 的函数
-  const updateUrl = useCallback((formulaId: string | null) => {
-    const currentParams = new URLSearchParams(window.location.search);
-    if (formulaId) {
-      currentParams.set('formula', formulaId);
-      router.push(`${pathname}?${currentParams.toString()}`, { scroll: false });
-    } else {
-      currentParams.delete('formula');
-      const newUrl = currentParams.toString() ? `${pathname}?${currentParams.toString()}` : pathname;
-      router.push(newUrl, { scroll: false });
-    }
-  }, [router, pathname]);
-
   // 封装的 setSelectedFormulaId，自动更新 URL
   const handleSelectFormula = useCallback((formulaId: string | null) => {
     setSelectedFormulaId(formulaId);
-    updateUrl(formulaId);
-  }, [updateUrl]);
+  }, []);
+
+  // 同步 selectedFormulaId 到 URL
+  useEffect(() => {
+    const currentParams = new URLSearchParams(window.location.search);
+    const currentFormulaId = currentParams.get('formula');
+    
+    if (selectedFormulaId !== currentFormulaId) {
+      if (selectedFormulaId) {
+        currentParams.set('formula', selectedFormulaId);
+        router.replace(`${pathname}?${currentParams.toString()}`, { scroll: false });
+      } else {
+        currentParams.delete('formula');
+        const newUrl = currentParams.toString() ? `${pathname}?${currentParams.toString()}` : pathname;
+        router.replace(newUrl, { scroll: false });
+      }
+    }
+  }, [selectedFormulaId, router, pathname]);
 
   // 封装的 setSelectedGroupId，清空 URL 参数
   const handleSelectGroup = useCallback((groupId: string | null) => {
@@ -215,6 +218,8 @@ function HomeContent() {
   useEffect(() => {
     if (urlFormulaId && urlFormulaId !== selectedFormulaId) {
       setSelectedFormulaId(urlFormulaId);
+    } else if (!urlFormulaId && selectedFormulaId) {
+      setSelectedFormulaId(null);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [urlFormulaId]); // 当 URL 公式参数变化时更新选中的公式
