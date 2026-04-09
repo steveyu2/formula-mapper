@@ -8,11 +8,16 @@ import { FormulaList } from '@/components/FormulaList';
 import { FormulaReferenceSelector } from '@/components/FormulaReferenceSelector';
 import { SubFormulaManager } from '@/components/SubFormulaManager';
 import { GroupSelector } from '@/components/GroupSelector';
+import { AutocompleteInput } from '@/components/AutocompleteInput';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
 import { CloudSyncModal } from '@/components/CloudSyncModal';
 import { CloudSyncButton } from '@/components/CloudSyncButton';
+import { SheetTabs } from '@/components/SheetTabs';
+import { FormulaSpreadsheet } from '@/components/FormulaSpreadsheet';
+import { FormulaDetailModal } from '@/components/FormulaDetailModal';
+import { SortModal } from '@/components/SortModal';
 import { FormulaGroup, Formula, SubFormula } from '@/lib/types';
-import { loadData, saveData, createGroup, createFormula } from '@/lib/storage';
+import { loadData, saveData, loadColumnHeaders, createGroup, createFormula } from '@/lib/storage';
 import { downloadExportData, importFromFile, importFromUrl } from '@/lib/importExport';
 
 function HomeContent() {
@@ -27,6 +32,21 @@ function HomeContent() {
   const [selectedFormulaId, setSelectedFormulaId] = useState<string | null>(null);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(true);
   const [cloudLoading, setCloudLoading] = useState(false);
+  const [columnHeaders, setColumnHeaders] = useState<{
+    level1?: string;
+    level2?: string;
+    level3?: string;
+    level4?: string;
+    level5?: string;
+    level6?: string;
+    formula?: string;
+  }>({});
+  
+  // Excel 视图模式 - 固定使用表格视图
+  const [detailFormula, setDetailFormula] = useState<Formula | null>(null);
+  const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
+  const [isSortModalOpen, setIsSortModalOpen] = useState(false);
+  const [pendingDeleteFormulaId, setPendingDeleteFormulaId] = useState<string | null>(null);
 
   // 封装的 setSelectedFormulaId，自动更新 URL
   const handleSelectFormula = useCallback((formulaId: string | null) => {
@@ -97,6 +117,12 @@ function HomeContent() {
     subFormulas: SubFormula[];
     groupId: string | null;
     parentGroupId: string | null;
+    level1Group: string;
+    level2Group: string;
+    level3Group: string;
+    level4Group: string;
+    level5Group: string;
+    level6Group: string;
   }>({
     name: '',
     englishFormula: '',
@@ -106,18 +132,34 @@ function HomeContent() {
     subFormulas: [],
     groupId: null,
     parentGroupId: null,
+    level1Group: '',
+    level2Group: '',
+    level3Group: '',
+    level4Group: '',
+    level5Group: '',
+    level6Group: '',
   });
 
   useEffect(() => {
     const savedGroups = loadData();
+    const savedHeaders = loadColumnHeaders();
     setGroups(savedGroups);
+    if (savedHeaders) {
+      setColumnHeaders(savedHeaders);
+    }
 
     // 恢复缓存的分组选择和展开状态
     const cachedSelectedGroupId = localStorage.getItem('selectedGroupId');
     const cachedSidebarCollapsed = localStorage.getItem('sidebarCollapsed');
+    
     if (cachedSelectedGroupId) {
+      // 有缓存，恢复缓存的选中状态
       setSelectedGroupId(cachedSelectedGroupId);
+    } else if (savedGroups.length > 0) {
+      // 没有缓存但有数据，默认选中第一个分组
+      setSelectedGroupId(savedGroups[0].id);
     }
+    
     if (cachedSidebarCollapsed) {
       setSidebarCollapsed(cachedSidebarCollapsed === 'true');
     }
@@ -135,13 +177,9 @@ function HomeContent() {
       }
     }
 
-    // 处理 cloud query 参数 - 初次绑定时自动加载数据
+    // 处理 cloud query 参数 - 每次都自动加载数据
     if (urlCloudEndpoint) {
-      const hasQueryBound = localStorage.getItem('cloudQueryBound');
-      if (!hasQueryBound) {
-        // 首次通过 query 参数绑定云端，自动加载数据
-        handleCloudQueryBind(urlCloudEndpoint);
-      }
+      handleCloudQueryBind(urlCloudEndpoint);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []); // 只在组件挂载时执行一次
@@ -182,8 +220,16 @@ function HomeContent() {
       
       if (result.success && result.data) {
         setGroups(result.data.groups);
-        saveData(result.data.groups);
-        setSelectedGroupId(null);
+        if (result.data.columnHeaders) {
+          setColumnHeaders(result.data.columnHeaders);
+        }
+        saveData(result.data.groups, result.data.columnHeaders);
+        
+        // 选中第一个分组
+        const firstGroupId = result.data.groups.length > 0 ? result.data.groups[0].id : null;
+        console.log('Cloud load: setting selectedGroupId to', firstGroupId);
+        setSelectedGroupId(firstGroupId);
+        
         setSelectedFormulaId(null);
         toast.success('已从云端加载数据');
         
@@ -226,12 +272,22 @@ function HomeContent() {
 
   // 缓存选中的分组和展开状态
   useEffect(() => {
+    console.log('selectedGroupId changed to:', selectedGroupId);
+    console.log('Current groups:', groups.map(g => ({ id: g.id, name: g.name })));
+    
+    // 如果有 groups 但 selectedGroupId 为 null，自动选中第一个
+    if (groups.length > 0 && selectedGroupId === null) {
+      console.log('Auto-selecting first group:', groups[0].id);
+      setSelectedGroupId(groups[0].id);
+      return;
+    }
+    
     if (selectedGroupId) {
       localStorage.setItem('selectedGroupId', selectedGroupId);
     } else {
       localStorage.removeItem('selectedGroupId');
     }
-  }, [selectedGroupId]);
+  }, [selectedGroupId, groups]);
 
   useEffect(() => {
     localStorage.setItem('sidebarCollapsed', String(sidebarCollapsed));
@@ -335,6 +391,13 @@ function HomeContent() {
     newFormula.description = formulaForm.description.trim();
     newFormula.variableFormulaMapping = formulaForm.variableFormulaMapping;
     newFormula.subFormulas = formulaForm.subFormulas;
+    // 添加分组字段
+    (newFormula as any).level1Group = formulaForm.level1Group;
+    (newFormula as any).level2Group = formulaForm.level2Group;
+    (newFormula as any).level3Group = formulaForm.level3Group;
+    (newFormula as any).level4Group = formulaForm.level4Group;
+    (newFormula as any).level5Group = formulaForm.level5Group;
+    (newFormula as any).level6Group = formulaForm.level6Group;
     const updatedGroups = groups.map((g) => {
       if (g.id === targetGroupId) {
         return { ...g, formulas: [...g.formulas, newFormula] };
@@ -343,20 +406,246 @@ function HomeContent() {
     });
     setGroups(updatedGroups);
     saveData(updatedGroups);
-    setFormulaForm({ name: '', englishFormula: '', chineseFormula: '', description: '', variableFormulaMapping: {}, subFormulas: [], groupId: null, parentGroupId: null });
+    setFormulaForm({ 
+      name: '', 
+      englishFormula: '', 
+      chineseFormula: '', 
+      description: '', 
+      variableFormulaMapping: {}, 
+      subFormulas: [], 
+      groupId: null, 
+      parentGroupId: null,
+      level1Group: '',
+      level2Group: '',
+      level3Group: '',
+      level4Group: '',
+      level5Group: '',
+      level6Group: '',
+    });
     setIsCreateFormulaModalOpen(false);
   };
 
   const handleDeleteFormula = (formulaId: string) => {
+    // 显示确认弹窗
+    setPendingDeleteFormulaId(formulaId);
+  };
+
+  const confirmDeleteFormula = () => {
+    if (!pendingDeleteFormulaId) return;
+    
     const updatedGroups = groups.map((g) => ({
       ...g,
-      formulas: g.formulas.filter((f) => f.id !== formulaId),
+      formulas: g.formulas.filter((f) => f.id !== pendingDeleteFormulaId),
     }));
     setGroups(updatedGroups);
     saveData(updatedGroups);
-    if (selectedFormulaId === formulaId) {
+    if (selectedFormulaId === pendingDeleteFormulaId) {
       handleSelectFormula(null);
     }
+    setPendingDeleteFormulaId(null);
+  };
+
+  // Excel 视图相关处理函数
+  const handleSpreadsheetRowClick = (formula: Formula) => {
+    setDetailFormula(formula);
+    setIsDetailModalOpen(true);
+  };
+
+  const handleUpdateFormulaInSpreadsheet = (formulaId: string, updates: Partial<Formula>) => {
+    const updatedGroups = groups.map((group) => ({
+      ...group,
+      formulas: group.formulas.map((f) =>
+        f.id === formulaId ? { ...f, ...updates } : f
+      ),
+    }));
+    setGroups(updatedGroups);
+    saveData(updatedGroups);
+  };
+
+  const handleAddFormulaToGroup = (groupId: string) => {
+    // 创建一个空的公式对象，但不立即保存
+    const newFormula: any = {
+      id: '', // 空 ID 表示是新增模式
+      name: '',
+      englishFormula: '',
+      chineseFormula: '',
+      createdAt: Date.now(),
+      variableFormulaMapping: {},
+      subFormulas: [],
+      level1Group: '',
+      level2Group: '',
+      level3Group: '',
+      level4Group: '',
+      level5Group: '',
+      level6Group: '',
+    };
+    
+    // 打开详情弹窗进行编辑
+    setDetailFormula(newFormula);
+    setIsDetailModalOpen(true);
+  };
+
+  const handleSaveFormulaDetail = (updatedFormula: Formula) => {
+    // 如果是新增模式（ID 为空），创建新公式
+    if (!updatedFormula.id) {
+      const newFormula: Formula = {
+        ...updatedFormula,
+        id: `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+      };
+      
+      // 找到目标分组并添加公式
+      const targetGroupId = selectedGroupId || groups[0]?.id;
+      const updatedGroups = groups.map((group) => {
+        if (group.id === targetGroupId) {
+          // 找到与新公式 L1 相同的位置插入
+          const newL1 = (newFormula as any).level1Group || '';
+          let insertIndex = group.formulas.length; // 默认追加到末尾
+          
+          // 如果有相同的 L1 分组，插入到该分组的末尾
+          if (newL1) {
+            for (let i = group.formulas.length - 1; i >= 0; i--) {
+              if ((group.formulas[i] as any).level1Group === newL1) {
+                insertIndex = i + 1;
+                break;
+              }
+            }
+          }
+          
+          const newFormulas = [...group.formulas];
+          newFormulas.splice(insertIndex, 0, newFormula);
+          
+          return {
+            ...group,
+            formulas: newFormulas,
+          };
+        }
+        return group;
+      });
+      
+      setGroups(updatedGroups);
+      saveData(updatedGroups);
+    } else {
+      // 否则是编辑模式，更新现有公式
+      handleUpdateFormulaInSpreadsheet(updatedFormula.id, updatedFormula);
+    }
+  };
+
+  const handleOpenSortModal = () => {
+    setIsSortModalOpen(true);
+  };
+
+  const handleSaveSortOrder = (sortedGroups: string[][]) => {
+    if (!selectedGroupId) return;
+    
+    const updatedGroups = groups.map((group) => {
+      if (group.id === selectedGroupId) {
+        const formulas = [...group.formulas];
+        const sortedFormulas: Formula[] = [];
+        
+        // sortedGroups[0] 是 L1 排序
+        // sortedGroups[1] 是 L2 排序
+        // sortedGroups[2] 是 L3 排序
+        // 以此类推...
+        
+        // 递归排序函数
+        const sortByLevels = (level: number, parentPath: string[]) => {
+          if (level >= sortedGroups.length) {
+            // 已经处理完所有分组层级，添加匹配的公式
+            const matched = formulas.filter(f => {
+              const fAny = f as any;
+              return parentPath.every((pathPart, idx) => {
+                const levelKey = `level${idx + 1}Group`;
+                return (fAny[levelKey] || '') === pathPart;
+              });
+            });
+            sortedFormulas.push(...matched);
+            return;
+          }
+          
+          const currentLevelOrder = sortedGroups[level] || [];
+          
+          if (currentLevelOrder.length === 0) {
+            // 当前层级没有排序，添加所有匹配的公式
+            const matched = formulas.filter(f => {
+              const fAny = f as any;
+              return parentPath.every((pathPart, idx) => {
+                const levelKey = `level${idx + 1}Group`;
+                return (fAny[levelKey] || '') === pathPart;
+              });
+            });
+            sortedFormulas.push(...matched);
+            return;
+          }
+          
+          // 按当前层级的排序顺序处理
+          for (const currentValue of currentLevelOrder) {
+            const newPath = [...parentPath, currentValue];
+            sortByLevels(level + 1, newPath);
+          }
+          
+          // 添加当前层级未排序的公式
+          const remaining = formulas.filter(f => {
+            const fAny = f as any;
+            const levelKey = `level${level + 1}Group`;
+            const currentValue = fAny[levelKey] || '';
+            
+            // 匹配父级路径
+            const matchesParent = parentPath.every((pathPart, idx) => {
+              const parentLevelKey = `level${idx + 1}Group`;
+              return (fAny[parentLevelKey] || '') === pathPart;
+            });
+            
+            // 且当前层级值不在排序列表中
+            return matchesParent && !currentLevelOrder.includes(currentValue);
+          });
+          sortedFormulas.push(...remaining);
+        };
+        
+        // 从 L1 开始排序
+        sortByLevels(0, []);
+        
+        // 添加未在排序中的公式
+        const sortedIds = new Set(sortedFormulas.map(f => f.id));
+        const remaining = formulas.filter(f => !sortedIds.has(f.id));
+        sortedFormulas.push(...remaining);
+        
+        return {
+          ...group,
+          formulas: sortedFormulas,
+        };
+      }
+      return group;
+    });
+
+    setGroups(updatedGroups);
+    saveData(updatedGroups);
+    setIsSortModalOpen(false);
+  };
+
+  const handleReorderRows = (groupId: string, draggedRowId: string, targetRowId: string) => {
+    const updatedGroups = groups.map((group) => {
+      if (group.id === groupId) {
+        const formulas = [...group.formulas];
+        const draggedIndex = formulas.findIndex(f => f.id === draggedRowId);
+        const targetIndex = formulas.findIndex(f => f.id === targetRowId);
+        
+        if (draggedIndex === -1 || targetIndex === -1) return group;
+        
+        // 移除拖拽的元素
+        const [draggedFormula] = formulas.splice(draggedIndex, 1);
+        // 插入到目标位置
+        formulas.splice(targetIndex, 0, draggedFormula);
+        
+        return {
+          ...group,
+          formulas,
+        };
+      }
+      return group;
+    });
+
+    setGroups(updatedGroups);
+    saveData(updatedGroups);
   };
 
   const handleEditFormula = (formula: Formula) => {
@@ -383,6 +672,12 @@ function HomeContent() {
         subFormulas: formula.subFormulas || [],
         groupId: currentGroup.id,
         parentGroupId: rootGroup.id !== currentGroup.id ? rootGroup.id : null,
+        level1Group: (formula as any).level1Group || '',
+        level2Group: (formula as any).level2Group || '',
+        level3Group: (formula as any).level3Group || '',
+        level4Group: (formula as any).level4Group || '',
+        level5Group: (formula as any).level5Group || '',
+        level6Group: (formula as any).level6Group || '',
       });
     } else {
       setFormulaForm({
@@ -394,6 +689,12 @@ function HomeContent() {
         subFormulas: formula.subFormulas || [],
         groupId: null,
         parentGroupId: null,
+        level1Group: (formula as any).level1Group || '',
+        level2Group: (formula as any).level2Group || '',
+        level3Group: (formula as any).level3Group || '',
+        level4Group: (formula as any).level4Group || '',
+        level5Group: (formula as any).level5Group || '',
+        level6Group: (formula as any).level6Group || '',
       });
     }
     setIsCreateFormulaModalOpen(true);
@@ -436,6 +737,13 @@ function HomeContent() {
       description: formulaForm.description.trim(),
       variableFormulaMapping: formulaForm.variableFormulaMapping || {},
       subFormulas: formulaForm.subFormulas,
+      // 更新分组字段
+      level1Group: formulaForm.level1Group,
+      level2Group: formulaForm.level2Group,
+      level3Group: formulaForm.level3Group,
+      level4Group: formulaForm.level4Group,
+      level5Group: formulaForm.level5Group,
+      level6Group: formulaForm.level6Group,
     };
 
     // 处理分组变更
@@ -467,9 +775,99 @@ function HomeContent() {
     setGroups(updatedGroups);
     saveData(updatedGroups);
     setEditingFormula(null);
-    setFormulaForm({ name: '', englishFormula: '', chineseFormula: '', description: '', variableFormulaMapping: {}, subFormulas: [], groupId: null, parentGroupId: null });
+    setFormulaForm({ 
+      name: '', 
+      englishFormula: '', 
+      chineseFormula: '', 
+      description: '', 
+      variableFormulaMapping: {}, 
+      subFormulas: [], 
+      groupId: null, 
+      parentGroupId: null,
+      level1Group: '',
+      level2Group: '',
+      level3Group: '',
+      level4Group: '',
+      level5Group: '',
+      level6Group: '',
+    });
     setIsCreateFormulaModalOpen(false);
   };
+
+  // 全局键盘事件监听
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // ESC 关闭弹窗
+      if (e.key === 'Escape') {
+        if (isCreateFormulaModalOpen) {
+          setIsCreateFormulaModalOpen(false);
+          setEditingFormula(null);
+          setFormulaForm({ 
+            name: '', 
+            englishFormula: '', 
+            chineseFormula: '', 
+            description: '', 
+            variableFormulaMapping: {}, 
+            subFormulas: [], 
+            groupId: null, 
+            parentGroupId: null,
+            level1Group: '',
+            level2Group: '',
+            level3Group: '',
+            level4Group: '',
+            level5Group: '',
+            level6Group: '',
+          });
+        } else if (isCreateGroupModalOpen) {
+          setIsCreateGroupModalOpen(false);
+          setNewGroupName('');
+        } else if (isDetailModalOpen) {
+          setIsDetailModalOpen(false);
+        } else if (isSortModalOpen) {
+          setIsSortModalOpen(false);
+        } else if (showUrlImportModal) {
+          setShowUrlImportModal(false);
+          setImportUrl('');
+          setImportError('');
+        } else if (showCloudSyncModal) {
+          setShowCloudSyncModal(false);
+        }
+      }
+      
+      // Enter 键触发确认按钮
+      if (e.key === 'Enter' && !e.shiftKey) {
+        // 创建/编辑公式
+        if (isCreateFormulaModalOpen) {
+          e.preventDefault();
+          if (editingFormula) {
+            handleUpdateFormula();
+          } else {
+            handleCreateFormula();
+          }
+        }
+        // 创建分组
+        else if (isCreateGroupModalOpen && newGroupName.trim()) {
+          e.preventDefault();
+          handleSaveGroup();
+        }
+      }
+    };
+
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, [
+    isCreateFormulaModalOpen,
+    isCreateGroupModalOpen,
+    isDetailModalOpen,
+    isSortModalOpen,
+    showUrlImportModal,
+    showCloudSyncModal,
+    editingFormula,
+    newGroupName,
+    handleCreateFormula,
+    handleUpdateFormula,
+    handleSaveGroup,
+  ]);
 
   const handleExport = () => {
     try {
@@ -485,16 +883,26 @@ function HomeContent() {
     const file = e.target.files?.[0];
     if (!file) return;
     try {
-      const importedGroups = await importFromFile(file);
+      const importedData = await importFromFile(file);
       setConfirmDialog({
         open: true,
         title: '确认导入',
-        message: `即将导入 ${importedGroups.length} 个分组，这将覆盖当前数据。确定继续吗？`,
+        message: `即将导入 ${importedData.groups.length} 个分组，这将覆盖当前数据。确定继续吗？`,
         variant: 'default',
         onConfirm: () => {
-          setGroups(importedGroups);
-          saveData(importedGroups);
-          setSelectedGroupId(null);
+          setGroups(importedData.groups);
+          if (importedData.columnHeaders) {
+            setColumnHeaders(importedData.columnHeaders);
+          }
+          saveData(importedData.groups, importedData.columnHeaders);
+          
+          // 选中第一个分组
+          if (importedData.groups.length > 0) {
+            setSelectedGroupId(importedData.groups[0].id);
+          } else {
+            setSelectedGroupId(null);
+          }
+          
           setImportError('');
           setShowDataMenu(false);
           if (fileInputRef.current) {
@@ -516,16 +924,26 @@ function HomeContent() {
     setIsImporting(true);
     setImportError('');
     try {
-      const importedGroups = await importFromUrl(importUrl.trim());
+      const importedData = await importFromUrl(importUrl.trim());
       setConfirmDialog({
         open: true,
         title: '确认导入',
-        message: `即将导入 ${importedGroups.length} 个分组，这将覆盖当前数据。确定继续吗？`,
+        message: `即将导入 ${importedData.groups.length} 个分组，这将覆盖当前数据。确定继续吗？`,
         variant: 'default',
         onConfirm: () => {
-          setGroups(importedGroups);
-          saveData(importedGroups);
-          setSelectedGroupId(null);
+          setGroups(importedData.groups);
+          if (importedData.columnHeaders) {
+            setColumnHeaders(importedData.columnHeaders);
+          }
+          saveData(importedData.groups, importedData.columnHeaders);
+          
+          // 选中第一个分组
+          if (importedData.groups.length > 0) {
+            setSelectedGroupId(importedData.groups[0].id);
+          } else {
+            setSelectedGroupId(null);
+          }
+          
           setImportError('');
           setShowUrlImportModal(false);
           setShowDataMenu(false);
@@ -570,7 +988,13 @@ function HomeContent() {
       variableFormulaMapping: {},
       subFormulas: [],
       groupId: selectedGroupId,
-      parentGroupId: rootGroupId !== selectedGroupId ? rootGroupId : null
+      parentGroupId: rootGroupId !== selectedGroupId ? rootGroupId : null,
+      level1Group: '',
+      level2Group: '',
+      level3Group: '',
+      level4Group: '',
+      level5Group: '',
+      level6Group: '',
     });
     setIsCreateFormulaModalOpen(true);
   };
@@ -580,7 +1004,7 @@ function HomeContent() {
       {/* 云端加载提示 */}
       {cloudLoading && (
         <div className="fixed inset-0 bg-black/30 flex items-center justify-center z-[100]">
-          <div className="bg-white rounded-xl shadow-2xl p-8 max-w-sm w-full mx-4">
+          <div className="bg-white rounded-xl shadow-2xl p-4 max-w-sm w-full mx-4">
             <div className="flex flex-col items-center">
               <svg className="animate-spin h-12 w-12 text-blue-600 mb-4" fill="none" viewBox="0 0 24 24">
                 <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
@@ -593,29 +1017,11 @@ function HomeContent() {
         </div>
       )}
 
-      <div className="px-6 py-8">
+      <div className="px-2.5 w-full max-w-full overflow-hidden" style={{ paddingTop: '10px', paddingBottom: '10px' }}>
         {/* 标题 */}
-        <div className="mb-6">
-          <h1 className="text-4xl font-bold text-blue-900 mb-3">
-            公式变量映射与可视化工具
-          </h1>
-          <p className="text-blue-700 mb-6">
-            创建分组管理多个公式，点击公式查看详细映射和结构树
-          </p>
-
+        <div className="mb-0">
           {/* 操作按钮 */}
           <div className="flex items-center gap-3">
-            {/* 菜单展开按钮 - 最左边 */}
-            <button
-              onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
-              className="w-12 h-12 bg-white border border-blue-200 rounded-xl shadow-sm flex items-center justify-center hover:bg-blue-50 transition-colors"
-              title={sidebarCollapsed ? '展开分组列表' : '收起分组列表'}
-            >
-              <svg className={`w-5 h-5 text-blue-700 transition-transform duration-300 ${sidebarCollapsed ? '' : 'rotate-180'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 19l-7-7 7-7m8 14l-7-7 7-7" />
-              </svg>
-            </button>
-
             {/* 数据管理下拉菜单 */}
             <div className="relative" ref={dataMenuRef}>
               <button
@@ -728,62 +1134,86 @@ function HomeContent() {
           )}
         </div>
 
-        <div className="flex gap-6">
-          {/* 左侧分组列表 - 可收起 */}
-          {!sidebarCollapsed && (
-            <div className="w-72">
-              <GroupList
+        <div className="flex gap-2.5" style={{ marginTop: '10px' }}>
+          {/* 表格视图 - 全屏显示 */}
+          <div className="flex-1">
+            <div className="bg-white shadow-sm border border-gray-200 overflow-hidden" style={{ height: 'calc(100vh - 80px)' }}>
+              <SheetTabs
                 groups={groups}
-                selectedGroupId={selectedGroupId}
-                onSelectGroup={handleSelectGroup}
-                onCreateGroup={handleCreateGroup}
-                onDeleteGroup={handleDeleteGroup}
-                onEditGroup={handleEditGroup}
+                activeGroupId={selectedGroupId}
+                onSwitchSheet={setSelectedGroupId}
+                onCreateSheet={() => handleCreateGroup('')}
+                onDeleteSheet={(groupId) => handleDeleteGroup(groupId)}
+                onRenameSheet={(groupId, newName) => handleEditGroup(groupId, newName)}
+                onReorderSheets={(newGroups) => {
+                  setGroups(newGroups);
+                  saveData(newGroups);
+                }}
+              />
+              <FormulaSpreadsheet
+                groups={groups}
+                activeGroupId={selectedGroupId}
+                onRowClick={handleSpreadsheetRowClick}
+                onUpdateFormula={handleUpdateFormulaInSpreadsheet}
+                onAddFormula={() => {
+                  if (selectedGroupId) {
+                    handleAddFormulaToGroup(selectedGroupId);
+                  }
+                }}
+                onDeleteFormula={handleDeleteFormula}
+                onOpenSortModal={handleOpenSortModal}
+                columnHeaders={columnHeaders}
               />
             </div>
-          )}
-
-          {/* 右侧公式列表 */}
-          <div className="flex-1">
-            <div className="bg-white/80 backdrop-blur-sm border border-blue-200 rounded-xl mb-6 shadow-sm">
-              <div className="flex items-center justify-between p-6">
-                <h2 id='group-title' className="text-xl font-semibold text-blue-900">
-                  {selectedGroupId ? getGroupPath(selectedGroupId) : '全部公式'}
-                </h2>
-                <button
-                  onClick={openFormulaModal}
-                  disabled={!selectedGroupId}
-                  className="px-5 py-2.5 bg-blue-500 hover:bg-blue-600 disabled:bg-gray-300 disabled:cursor-not-allowed text-white rounded-xl font-medium transition-all flex items-center gap-2 disabled:opacity-50"
-                >
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-                  </svg>
-                  新建公式
-                </button>
-              </div>
-            </div>
-
-            <FormulaList
-              groups={groups}
-              selectedGroupId={selectedGroupId}
-              selectedFormulaId={selectedFormulaId}
-              onSelectFormula={handleSelectFormula}
-              onDeleteFormula={handleDeleteFormula}
-              onEditFormula={handleEditFormula}
-            />
           </div>
         </div>
       </div>
+
+      {/* 公式详情弹窗 (Excel 视图) */}
+      <FormulaDetailModal
+        formula={detailFormula}
+        isOpen={isDetailModalOpen}
+        onClose={() => setIsDetailModalOpen(false)}
+        onSave={handleSaveFormulaDetail}
+        allFormulas={groups.reduce((acc, group) => {
+          group.formulas.forEach(f => {
+            acc[f.id] = f;
+          });
+          return acc;
+        }, {} as Record<string, Formula>)}
+        groups={groups}
+      />
+
+      {/* 排序弹窗 */}
+      <SortModal
+        groups={groups}
+        activeGroupId={selectedGroupId}
+        isOpen={isSortModalOpen}
+        onClose={() => setIsSortModalOpen(false)}
+        onSave={handleSaveSortOrder}
+      />
+
+      {/* 删除确认弹窗 */}
+      <ConfirmDialog
+        isOpen={pendingDeleteFormulaId !== null}
+        onCancel={() => setPendingDeleteFormulaId(null)}
+        onConfirm={confirmDeleteFormula}
+        title="确认删除"
+        message="确定要删除这个公式吗？此操作无法撤销。"
+        confirmText="删除"
+        cancelText="取消"
+        variant="danger"
+      />
 
       {/* 创建分组对话框 */}
       {isCreateGroupModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
           <div className="absolute inset-0 bg-black/30" onClick={() => setIsCreateGroupModalOpen(false)} />
           <div className="relative bg-white rounded-xl shadow-xl max-w-md w-full">
-            <div className="px-6 py-4 border-b">
+            <div className="px-2.5 py-2 border-b">
               <h3 className="text-lg font-semibold">创建新分组</h3>
             </div>
-            <div className="p-6">
+            <div className="p-2.5">
               <input
                 type="text"
                 placeholder="例如：数学公式"
@@ -821,7 +1251,22 @@ function HomeContent() {
           <div className="absolute inset-0 bg-black/30" onClick={() => {
             setIsCreateFormulaModalOpen(false);
             setEditingFormula(null);
-            setFormulaForm({ name: '', englishFormula: '', chineseFormula: '', description: '', variableFormulaMapping: {}, subFormulas: [], groupId: null, parentGroupId: null });
+            setFormulaForm({ 
+              name: '', 
+              englishFormula: '', 
+              chineseFormula: '', 
+              description: '', 
+              variableFormulaMapping: {}, 
+              subFormulas: [], 
+              groupId: null, 
+              parentGroupId: null,
+              level1Group: '',
+              level2Group: '',
+              level3Group: '',
+              level4Group: '',
+              level5Group: '',
+              level6Group: '',
+            });
           }} />
           <div className="relative bg-white rounded-xl shadow-xl max-w-2xl w-full my-8">
             <div className="px-6 py-4 border-b flex items-center justify-between">
@@ -832,7 +1277,22 @@ function HomeContent() {
                 onClick={() => {
                   setIsCreateFormulaModalOpen(false);
                   setEditingFormula(null);
-                  setFormulaForm({ name: '', englishFormula: '', chineseFormula: '', description: '', variableFormulaMapping: {}, subFormulas: [], groupId: null, parentGroupId: null });
+                  setFormulaForm({ 
+                    name: '', 
+                    englishFormula: '', 
+                    chineseFormula: '', 
+                    description: '', 
+                    variableFormulaMapping: {}, 
+                    subFormulas: [], 
+                    groupId: null, 
+                    parentGroupId: null,
+                    level1Group: '',
+                    level2Group: '',
+                    level3Group: '',
+                    level4Group: '',
+                    level5Group: '',
+                    level6Group: '',
+                  });
                 }}
                 className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
               >
@@ -841,17 +1301,7 @@ function HomeContent() {
                 </svg>
               </button>
             </div>
-            <div className="p-6 space-y-4 max-h-[calc(100vh-200px)] overflow-y-auto">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1.5">公式名称</label>
-                <input
-                  type="text"
-                  placeholder="例如：基础加法公式"
-                  value={formulaForm.name}
-                  onChange={(e) => setFormulaForm({ ...formulaForm, name: e.target.value })}
-                  className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                />
-              </div>
+            <div className="p-2.5 space-y-2.5 max-h-[calc(100vh-200px)] overflow-y-auto">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1.5">英文公式</label>
                 <input
@@ -883,6 +1333,74 @@ function HomeContent() {
                   rows={3}
                 />
               </div>
+
+              {/* 分组字段自动补全 */}
+              <AutocompleteInput
+                label={columnHeaders?.level1 || '模块'}
+                value={formulaForm.level1Group}
+                onChange={(value) => setFormulaForm({ ...formulaForm, level1Group: value })}
+                options={Array.from(new Set(
+                  groups.flatMap(g => g.formulas)
+                    .map((f: any) => f.level1Group)
+                    .filter(Boolean)
+                ))}
+                placeholder={`请输入${columnHeaders?.level1 || '模块'}`}
+              />
+              <AutocompleteInput
+                label={columnHeaders?.level2 || '代码'}
+                value={formulaForm.level2Group}
+                onChange={(value) => setFormulaForm({ ...formulaForm, level2Group: value })}
+                options={Array.from(new Set(
+                  groups.flatMap(g => g.formulas)
+                    .map((f: any) => f.level2Group)
+                    .filter(Boolean)
+                ))}
+                placeholder={`请输入${columnHeaders?.level2 || '代码'}`}
+              />
+              <AutocompleteInput
+                label={columnHeaders?.level3 || '全称'}
+                value={formulaForm.level3Group}
+                onChange={(value) => setFormulaForm({ ...formulaForm, level3Group: value })}
+                options={Array.from(new Set(
+                  groups.flatMap(g => g.formulas)
+                    .map((f: any) => f.level3Group)
+                    .filter(Boolean)
+                ))}
+                placeholder={`请输入${columnHeaders?.level3 || '全称'}`}
+              />
+              <AutocompleteInput
+                label={columnHeaders?.level4 || '名称'}
+                value={formulaForm.level4Group}
+                onChange={(value) => setFormulaForm({ ...formulaForm, level4Group: value })}
+                options={Array.from(new Set(
+                  groups.flatMap(g => g.formulas)
+                    .map((f: any) => f.level4Group)
+                    .filter(Boolean)
+                ))}
+                placeholder={`请输入${columnHeaders?.level4 || '名称'}`}
+              />
+              <AutocompleteInput
+                label={columnHeaders?.level5 || '条件'}
+                value={formulaForm.level5Group}
+                onChange={(value) => setFormulaForm({ ...formulaForm, level5Group: value })}
+                options={Array.from(new Set(
+                  groups.flatMap(g => g.formulas)
+                    .map((f: any) => f.level5Group)
+                    .filter(Boolean)
+                ))}
+                placeholder={`请输入${columnHeaders?.level5 || '条件'}`}
+              />
+              <AutocompleteInput
+                label={columnHeaders?.level6 || '计算方'}
+                value={formulaForm.level6Group}
+                onChange={(value) => setFormulaForm({ ...formulaForm, level6Group: value })}
+                options={Array.from(new Set(
+                  groups.flatMap(g => g.formulas)
+                    .map((f: any) => f.level6Group)
+                    .filter(Boolean)
+                ))}
+                placeholder={`请输入${columnHeaders?.level6 || '计算方'}`}
+              />
 
               {/* 分组选择 */}
               <GroupSelector
@@ -917,7 +1435,22 @@ function HomeContent() {
                 onClick={() => {
                   setIsCreateFormulaModalOpen(false);
                   setEditingFormula(null);
-                  setFormulaForm({ name: '', englishFormula: '', chineseFormula: '', description: '', variableFormulaMapping: {}, subFormulas: [], groupId: null, parentGroupId: null });
+                  setFormulaForm({ 
+                    name: '', 
+                    englishFormula: '', 
+                    chineseFormula: '', 
+                    description: '', 
+                    variableFormulaMapping: {}, 
+                    subFormulas: [], 
+                    groupId: null, 
+                    parentGroupId: null,
+                    level1Group: '',
+                    level2Group: '',
+                    level3Group: '',
+                    level4Group: '',
+                    level5Group: '',
+                    level6Group: '',
+                  });
                 }}
                 className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
               >
@@ -938,10 +1471,10 @@ function HomeContent() {
       {showUrlImportModal && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
           <div className="bg-white rounded-xl shadow-xl w-full max-w-md mx-4">
-            <div className="px-6 py-4 border-b">
+            <div className="px-2.5 py-2 border-b">
               <h3 className="text-lg font-semibold text-gray-900">从 URL 导入数据</h3>
             </div>
-            <div className="p-6">
+            <div className="p-2.5">
               <p className="text-sm text-gray-600 mb-4">
                 点击复制示例数据 URL：
                 <button
@@ -1010,9 +1543,21 @@ function HomeContent() {
         onClose={() => setShowCloudSyncModal(false)}
         groups={groups}
         onLoadData={(loadedGroups) => {
+          console.log('onLoadData called with', loadedGroups.length, 'groups');
+          if (loadedGroups.length > 0) {
+            console.log('First group:', loadedGroups[0].id, loadedGroups[0].name);
+          }
           setGroups(loadedGroups);
           saveData(loadedGroups);
-          setSelectedGroupId(null);
+          
+          // 选中第一个分组
+          if (loadedGroups.length > 0) {
+            console.log('Setting selectedGroupId to:', loadedGroups[0].id);
+            setSelectedGroupId(loadedGroups[0].id);
+          } else {
+            setSelectedGroupId(null);
+          }
+          
           setSelectedFormulaId(null);
         }}
       />

@@ -1,6 +1,17 @@
 import { FormulaGroup, Formula } from './types';
 
 const STORAGE_KEY = 'formulaMapper';
+const HEADERS_KEY = 'formulaMapper_headers';
+
+export interface ColumnHeaders {
+  level1?: string;
+  level2?: string;
+  level3?: string;
+  level4?: string;
+  level5?: string;
+  level6?: string;
+  formula?: string;
+}
 
 export function loadData(): FormulaGroup[] {
   if (typeof window === 'undefined') return [];
@@ -14,11 +25,26 @@ export function loadData(): FormulaGroup[] {
   }
 }
 
-export function saveData(groups: FormulaGroup[]): void {
+export function loadColumnHeaders(): ColumnHeaders | undefined {
+  if (typeof window === 'undefined') return undefined;
+  
+  try {
+    const data = localStorage.getItem(HEADERS_KEY);
+    return data ? JSON.parse(data) : undefined;
+  } catch (error) {
+    console.error('Failed to load column headers:', error);
+    return undefined;
+  }
+}
+
+export function saveData(groups: FormulaGroup[], headers?: ColumnHeaders): void {
   if (typeof window === 'undefined') return;
 
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(groups));
+    if (headers) {
+      localStorage.setItem(HEADERS_KEY, JSON.stringify(headers));
+    }
   } catch (error) {
     console.error('Failed to save data:', error);
   }

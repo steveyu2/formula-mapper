@@ -237,7 +237,7 @@ function FormulaItem({
           e.stopPropagation();
           onToggle();
         }}
-        className="flex items-center justify-between p-4 cursor-pointer hover:bg-gray-50 transition-colors"
+        className="flex items-center justify-between p-2.5 cursor-pointer hover:bg-gray-50 transition-colors"
       >
         <div className="flex-1">
           <div className="flex items-center gap-2">
@@ -295,7 +295,7 @@ function FormulaItem({
 
       {/* 公式详情 */}
       {isExpanded && (
-        <div className="border-t border-gray-100 p-6 space-y-6">
+        <div className="border-t border-gray-100 p-2.5 space-y-2.5">
           {/* 变量映射 */}
           {mappingItems.length > 0 && (
             <div>
@@ -323,7 +323,7 @@ function FormulaItem({
               <h4 className="text-sm font-medium text-gray-600 mb-3">
                 公式展示
               </h4>
-              <div className="bg-slate-50 rounded-lg p-6">
+              <div className="bg-slate-50 rounded-lg p-2.5">
                 <FormulaRenderer
                   formula={formula.englishFormula}
                   mapping={mapping}
@@ -343,7 +343,7 @@ function FormulaItem({
               <h4 className="text-sm font-medium text-gray-600 mb-3">
                 公式结构树
               </h4>
-              <div className="bg-slate-50 rounded-lg p-6">
+              <div className="bg-slate-50 rounded-lg p-2.5">
                 <ASTTree
                   ast={ast}
                   mapping={mapping}

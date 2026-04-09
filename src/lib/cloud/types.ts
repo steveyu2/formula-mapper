@@ -34,6 +34,15 @@ export interface CloudStorageData {
   version: string;
   timestamp: number;
   groups: FormulaGroup[];
+  columnHeaders?: {
+    level1?: string;
+    level2?: string;
+    level3?: string;
+    level4?: string;
+    level5?: string;
+    level6?: string;
+    formula?: string;
+  };
   metadata?: {
     deviceId?: string;
     userAgent?: string;

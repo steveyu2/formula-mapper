@@ -11,6 +11,8 @@ interface GroupListProps {
   onCreateGroup: (_parentId: string | null) => void;
   onDeleteGroup: (_groupId: string) => void;
   onEditGroup: (_groupId: string, _newName: string) => void;
+  sidebarCollapsed?: boolean;
+  onToggleSidebar?: () => void;
 }
 
 export function GroupList({
@@ -20,6 +22,8 @@ export function GroupList({
   onCreateGroup,
   onDeleteGroup,
   onEditGroup,
+  sidebarCollapsed,
+  onToggleSidebar,
 }: GroupListProps) {
   const [editingGroup, setEditingGroup] = useState<FormulaGroup | null>(null);
   const [editName, setEditName] = useState('');
@@ -196,9 +200,9 @@ export function GroupList({
   };
 
   return (
-    <div className="bg-white rounded-xl border shadow-sm overflow-hidden">
+    <div className="bg-white rounded-xl border shadow-sm overflow-hidden" style={{ padding: '10px' }}>
       {/* 标题栏 */}
-      <div className="flex items-center justify-between p-4 border-b">
+      <div className="flex items-center justify-between p-2.5 border-b">
         <h2 className="text-lg font-medium">公式分组</h2>
         <button
           onClick={() => onCreateGroup(null)}
@@ -211,7 +215,7 @@ export function GroupList({
         </button>
       </div>
 
-      <div className="p-3 max-h-96 overflow-y-auto">
+      <div className="p-2.5 max-h-96 overflow-y-auto">
         {/* 全部公式 */}
         <div
           className={`flex items-center justify-between px-3 py-2 rounded-lg transition-colors cursor-pointer mb-1 ${

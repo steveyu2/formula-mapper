@@ -3,6 +3,15 @@ import { FormulaGroup } from './types';
 export interface ExportData {
   version: string;
   exportDate: string;
+  columnHeaders?: {
+    level1?: string;
+    level2?: string;
+    level3?: string;
+    level4?: string;
+    level5?: string;
+    level6?: string;
+    formula?: string;
+  };
   groups: FormulaGroup[];
 }
 
@@ -40,7 +49,7 @@ export function downloadExportData(groups: FormulaGroup[], filename?: string): v
 /**
  * 从 JSON 导入数据
  */
-export function importData(json: string): FormulaGroup[] {
+export function importData(json: string): { groups: FormulaGroup[]; columnHeaders?: ExportData['columnHeaders'] } {
   try {
     const data: ExportData = JSON.parse(json);
 
@@ -65,7 +74,10 @@ export function importData(json: string): FormulaGroup[] {
       });
     });
 
-    return data.groups;
+    return {
+      groups: data.groups,
+      columnHeaders: data.columnHeaders,
+    };
   } catch (error) {
     if (error instanceof SyntaxError) {
       throw new Error('JSON 格式错误，请检查文件内容');
@@ -77,15 +89,15 @@ export function importData(json: string): FormulaGroup[] {
 /**
  * 从文件导入数据
  */
-export async function importFromFile(file: File): Promise<FormulaGroup[]> {
+export async function importFromFile(file: File): Promise<{ groups: FormulaGroup[]; columnHeaders?: ExportData['columnHeaders'] }> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
 
     reader.onload = (e) => {
       try {
         const content = e.target?.result as string;
-        const groups = importData(content);
-        resolve(groups);
+        const data = importData(content);
+        resolve(data);
       } catch (error) {
         reject(error);
       }
@@ -102,7 +114,7 @@ export async function importFromFile(file: File): Promise<FormulaGroup[]> {
 /**
  * 从 URL 导入数据
  */
-export async function importFromUrl(url: string): Promise<FormulaGroup[]> {
+export async function importFromUrl(url: string): Promise<{ groups: FormulaGroup[]; columnHeaders?: ExportData['columnHeaders'] }> {
   try {
     const response = await fetch(url);
     if (!response.ok) {

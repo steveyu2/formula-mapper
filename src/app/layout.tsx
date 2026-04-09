@@ -13,11 +13,11 @@ export default function RootLayout({
   children: React.ReactNode
 }) {
   return (
-    <html lang="zh-CN">
-      <body>
+    <html lang="zh-CN" style={{ touchAction: 'pan-x pan-y' }}>
+      <body style={{ touchAction: 'pan-x pan-y', overflowX: 'hidden', maxWidth: '100vw' }}>
         {children}
         <Toaster position="top-center" richColors />
       </body>
     </html>
-  )
+  );
 }

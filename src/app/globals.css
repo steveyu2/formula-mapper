@@ -2,6 +2,150 @@
 @tailwind components;
 @tailwind utilities;
 
+/* 统一表格样式 */
+.ag-theme-alpine,
+.touch-container table {
+  border-collapse: collapse;
+  table-layout: fixed;
+}
+
+.touch-container {
+  max-width: 100vw;
+  overflow-x: auto;
+}
+
+.touch-container table td,
+.touch-container table th {
+  border: 1px solid #e5e7eb;
+  padding: 8px 12px;
+  vertical-align: middle;
+}
+
+.touch-container table th {
+  background-color: #f3f4f6;
+  font-weight: 600;
+  color: #374151;
+}
+
+/* 行悬停高亮 */
+.touch-container table tbody tr {
+  transition: background-color 0.15s ease;
+}
+
+.touch-container table tbody tr:hover {
+  background-color: #eff6ff !important;
+}
+
+.touch-container table tbody tr:hover td {
+  background-color: #eff6ff !important;
+}
+
+/* 分组列背景色（非悬停时） */
+.touch-container table tbody tr td.bg-sky-100 {
+  background-color: #e0f2fe !important;
+}
+
+.touch-container table tbody tr td.bg-sky-50 {
+  background-color: #f0f9ff !important;
+}
+
+.touch-container table tbody tr td.bg-gray-50 {
+  background-color: #f9fafb !important;
+}
+
+.touch-container table tbody tr td.bg-yellow-50 {
+  background-color: #fefce8 !important;
+}
+
+/* 悬停时保持分组列背景色 */
+.touch-container table tbody tr:hover td.bg-sky-100 {
+  background-color: #bae6fd !important;
+}
+
+.touch-container table tbody tr:hover td.bg-sky-50 {
+  background-color: #e0f2fe !important;
+}
+
+.touch-container table tbody tr:hover td.bg-gray-50 {
+  background-color: #f3f4f6 !important;
+}
+
+.touch-container table tbody tr:hover td.bg-yellow-50 {
+  background-color: #fef08a !important;
+}
+
+/* 固定列样式 */
+.touch-container table th.sticky,
+.touch-container table td.sticky {
+  position: sticky;
+  right: 0;
+  z-index: 10;
+}
+
+/* 操作列背景色 */
+.touch-container table tbody tr td.bg-white {
+  background-color: white !important;
+}
+
+.touch-container table tbody tr:hover td.bg-white {
+  background-color: #eff6ff !important;
+}
+
+/* 表头固定 */
+.touch-container table thead {
+  position: sticky !important;
+  top: 0 !important;
+  z-index: 20 !important;
+}
+
+.touch-container table thead th {
+  position: sticky !important;
+  top: 0 !important;
+  z-index: 20 !important;
+}
+
+.touch-container table thead th.sticky {
+  background-color: #f3f4f6;
+  z-index: 30;
+}
+
+.touch-container table tbody td.sticky {
+  z-index: 10;
+}
+
+.touch-container table tbody tr:hover td.sticky {
+  background-color: #eff6ff !important;
+  z-index: 10;
+}
+
+/* 固定列阴影 */
+.touch-container table th.sticky::before,
+.touch-container table td.sticky::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -2px;
+  width: 2px;
+  height: 100%;
+  background: linear-gradient(to right, transparent, rgba(0, 0, 0, 0.05));
+  pointer-events: none;
+}
+
+/* 禁用浏览器默认的双指缩放手势 */
+html, body {
+  touch-action: pan-x pan-y;
+  overscroll-behavior: none;
+  max-width: 100vw;
+  overflow-x: hidden;
+}
+
+/* 表格容器允许滚动但禁用缩放 */
+.touch-container {
+  touch-action: pan-x pan-y; /* 允许滚动，禁用缩放 */
+  -webkit-overflow-scrolling: touch;
+  position: relative;
+}
+
 @layer base {
   :root {
     --background: 210 40% 98%;
