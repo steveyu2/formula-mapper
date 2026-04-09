@@ -35,6 +35,15 @@ export interface Formula {
   createdAt: number;
   variableFormulaMapping?: Record<string, string>; // 变量映射到公式ID的映射
   subFormulas?: SubFormula[]; // 子公式列表
+  
+  // 分组字段（最多 7 层）
+  level1Group?: string; // 模块
+  level2Group?: string; // 代码
+  level3Group?: string; // 全称
+  level4Group?: string; // 名称
+  level5Group?: string; // 条件
+  level6Group?: string; // 计算方
+  level7Group?: string; // 扩展
 }
 
 export interface SubFormula {

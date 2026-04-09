@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import React, { useState, useMemo } from 'react';
 import { FormulaGroup } from '@/lib/types';
 import {
   DndContext,
@@ -148,7 +148,7 @@ function SortableSheetTab({ group, isActive, onClick, onDelete, onRename }: Shee
   );
 }
 
-function SheetTab({ group, isActive, onClick, onDelete, onRename, dragAttributes, dragListeners }: SheetTabProps) {
+export const SheetTab = React.memo(function SheetTab({ group, isActive, onClick, onDelete, onRename, dragAttributes, dragListeners }: SheetTabProps) {
   const [isEditing, setIsEditing] = useState(false);
   const [editName, setEditName] = useState(group.name);
 
@@ -231,4 +231,4 @@ function SheetTab({ group, isActive, onClick, onDelete, onRename, dragAttributes
       )}
     </div>
   );
-}
+});

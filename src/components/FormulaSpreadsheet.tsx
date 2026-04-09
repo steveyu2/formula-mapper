@@ -102,31 +102,54 @@ export function FormulaSpreadsheet({
       chineseFormula: formula.chineseFormula,
       description: formula.description || '',
       groupId: group.id,
-      level1Group: (formula as any).level1Group || '',
-      level2Group: (formula as any).level2Group || '',
-      level3Group: (formula as any).level3Group || '',
-      level4Group: (formula as any).level4Group || '',
-      level5Group: (formula as any).level5Group || '',
-      level6Group: (formula as any).level6Group || '',
+      level1Group: formula.level1Group || '',
+      level2Group: formula.level2Group || '',
+      level3Group: formula.level3Group || '',
+      level4Group: formula.level4Group || '',
+      level5Group: formula.level5Group || '',
+      level6Group: formula.level6Group || '',
     }));
   }, [groups, activeGroupId]);
 
-  // 计算合并信息
-  const getRowSpan = useCallback((field: keyof SpreadsheetRow, rowIndex: number): number => {
-    const currentVal = rowData[rowIndex]?.[field] || '';
-    if (!currentVal) return 1;
+  // 预计算所有 rowSpan 值（O(n) 复杂度）
+  const rowSpanCache = useMemo(() => {
+    const cache: Record<string, number> = {};
+    const fields: (keyof SpreadsheetRow)[] = [
+      'level1Group', 'level2Group', 'level3Group', 
+      'level4Group', 'level5Group', 'level6Group'
+    ];
 
-    let count = 0;
-    for (let i = rowIndex; i < rowData.length; i++) {
-      const rowVal = (rowData[i] as any)[field] || '';
-      if (rowVal === currentVal) {
-        count++;
-      } else {
-        break;
+    fields.forEach(field => {
+      let spanStart = 0;
+      let spanCount = 1;
+
+      for (let i = 1; i <= rowData.length; i++) {
+        const currentVal = (rowData[i]?.[field] as string) || '';
+        const prevVal = (rowData[i - 1]?.[field] as string) || '';
+
+        if (i === rowData.length || currentVal !== prevVal) {
+          // 记录起始行的 span 值
+          cache[`${spanStart}-${field}`] = spanCount;
+          // 其他行标记为 0（不渲染）
+          for (let j = spanStart + 1; j < i; j++) {
+            cache[`${j}-${field}`] = 0;
+          }
+          spanStart = i;
+          spanCount = 1;
+        } else {
+          spanCount++;
+        }
       }
-    }
-    return count || 1;
+    });
+
+    return cache;
   }, [rowData]);
+
+  // 获取 rowSpan（O(1) 查表）
+  const getRowSpan = useCallback((field: keyof SpreadsheetRow, rowIndex: number): number => {
+    const key = `${rowIndex}-${field}`;
+    return rowSpanCache[key] || 1;
+  }, [rowSpanCache]);
 
   // 判断是否应该显示单元格（合并的第一行）
   const shouldShowCell = useCallback((field: keyof SpreadsheetRow, rowIndex: number): boolean => {
@@ -454,14 +477,23 @@ export function FormulaSpreadsheet({
   useEffect(() => {
     if (!resizingColumn) return;
 
+    let animationFrameId: number;
+
     const handleMouseMove = (e: MouseEvent) => {
-      const deltaX = e.clientX - resizeStartX;
-      const newWidth = Math.max(100, resizeStartWidth + deltaX);
+      // 使用 requestAnimationFrame 优化性能
+      if (animationFrameId) {
+        cancelAnimationFrame(animationFrameId);
+      }
       
-      setColumnSizes(prev => ({
-        ...prev,
-        [resizingColumn]: newWidth,
-      }));
+      animationFrameId = requestAnimationFrame(() => {
+        const deltaX = e.clientX - resizeStartX;
+        const newWidth = Math.max(100, resizeStartWidth + deltaX);
+        
+        setColumnSizes(prev => ({
+          ...prev,
+          [resizingColumn]: newWidth,
+        }));
+      });
     };
 
     const handleMouseUp = () => {

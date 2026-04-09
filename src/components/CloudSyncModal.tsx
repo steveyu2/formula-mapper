@@ -232,10 +232,6 @@ export function CloudSyncModal({ isOpen, onClose, groups, onLoadData }: CloudSyn
       const result = await provider.load('formula-data');
 
       if (result.success && result.data) {
-        console.log('CloudSyncModal: Loading data, groups count:', result.data.groups.length);
-        if (result.data.groups.length > 0) {
-          console.log('CloudSyncModal: First group id:', result.data.groups[0].id);
-        }
         onLoadData(result.data.groups);
         const config = getProviderConfig();
         CloudConfigManager.save(config);

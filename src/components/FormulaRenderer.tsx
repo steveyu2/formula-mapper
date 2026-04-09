@@ -1,5 +1,6 @@
 'use client';
 
+import { memo, useMemo } from 'react';
 import { Tooltip } from './Tooltip';
 import { Formula, SubFormula } from '@/lib/types';
 
@@ -24,25 +25,29 @@ const VARIABLE_COLORS = [
   { bg: 'bg-indigo-100', text: 'text-indigo-700', hover: 'hover:bg-indigo-200' },
 ];
 
-export function FormulaRenderer({
+export const FormulaRenderer = memo(({
   formula,
   mapping,
   formulaReferences = {},
   onFormulaReferenceClick
-}: FormulaRendererProps) {
-  const tokens = tokenizeFormula(formula);
+}: FormulaRendererProps) => {
+  // 缓存 token 化结果
+  const tokens = useMemo(() => tokenizeFormula(formula), [formula]);
 
-  // 提取所有唯一的变量并按出现顺序排序
-  const variableOrder = tokens
-    .filter(token => token.type === 'variable')
-    .map(token => token.value);
-  const uniqueVariables = Array.from(new Set(variableOrder));
-
-  // 为每个变量分配颜色索引
-  const variableColorIndex: Record<string, number> = {};
-  uniqueVariables.forEach((variable, index) => {
-    variableColorIndex[variable] = index % VARIABLE_COLORS.length;
-  });
+  // 缓存变量颜色索引
+  const variableColorIndex = useMemo(() => {
+    const variableOrder = tokens
+      .filter(token => token.type === 'variable')
+      .map(token => token.value);
+    const uniqueVariables = Array.from(new Set(variableOrder));
+    
+    const colorIndex: Record<string, number> = {};
+    uniqueVariables.forEach((variable, index) => {
+      colorIndex[variable] = index % VARIABLE_COLORS.length;
+    });
+    
+    return colorIndex;
+  }, [tokens]);
 
   return (
     <div className="flex items-center justify-center gap-2 flex-wrap">
@@ -119,7 +124,12 @@ export function FormulaRenderer({
       })}
     </div>
   );
-}
+}, (prev, next) => {
+  // 自定义比较：只在 formula 或 mapping 变化时重新渲染
+  return prev.formula === next.formula && 
+         prev.mapping === next.mapping &&
+         prev.formulaReferences === next.formulaReferences;
+});
 
 interface Token {
   type: 'variable' | 'operator' | 'paren' | 'number' | 'whitespace' | 'function';

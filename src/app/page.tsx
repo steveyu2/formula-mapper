@@ -2,23 +2,41 @@
 
 import { useState, useEffect, useRef, Suspense, useCallback } from 'react';
 import { useSearchParams, useRouter, usePathname } from 'next/navigation';
+import dynamic from 'next/dynamic';
 import { toast } from 'sonner';
-import { GroupList } from '@/components/GroupList';
-import { FormulaList } from '@/components/FormulaList';
 import { FormulaReferenceSelector } from '@/components/FormulaReferenceSelector';
 import { SubFormulaManager } from '@/components/SubFormulaManager';
 import { GroupSelector } from '@/components/GroupSelector';
 import { AutocompleteInput } from '@/components/AutocompleteInput';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
-import { CloudSyncModal } from '@/components/CloudSyncModal';
 import { CloudSyncButton } from '@/components/CloudSyncButton';
 import { SheetTabs } from '@/components/SheetTabs';
 import { FormulaSpreadsheet } from '@/components/FormulaSpreadsheet';
-import { FormulaDetailModal } from '@/components/FormulaDetailModal';
-import { SortModal } from '@/components/SortModal';
 import { FormulaGroup, Formula, SubFormula } from '@/lib/types';
 import { loadData, saveData, loadColumnHeaders, createGroup, createFormula } from '@/lib/storage';
 import { downloadExportData, importFromFile, importFromUrl } from '@/lib/importExport';
+
+// Lazy load modals
+const FormulaDetailModal = dynamic(
+  () => import('@/components/FormulaDetailModal').then(mod => ({ 
+    default: mod.FormulaDetailModal 
+  })),
+  { ssr: false }
+);
+
+const SortModal = dynamic(
+  () => import('@/components/SortModal').then(mod => ({ 
+    default: mod.SortModal 
+  })),
+  { ssr: false }
+);
+
+const CloudSyncModal = dynamic(
+  () => import('@/components/CloudSyncModal').then(mod => ({ 
+    default: mod.CloudSyncModal 
+  })),
+  { ssr: false }
+);
 
 function HomeContent() {
   const router = useRouter();
@@ -227,7 +245,6 @@ function HomeContent() {
         
         // 选中第一个分组
         const firstGroupId = result.data.groups.length > 0 ? result.data.groups[0].id : null;
-        console.log('Cloud load: setting selectedGroupId to', firstGroupId);
         setSelectedGroupId(firstGroupId);
         
         setSelectedFormulaId(null);
@@ -272,12 +289,8 @@ function HomeContent() {
 
   // 缓存选中的分组和展开状态
   useEffect(() => {
-    console.log('selectedGroupId changed to:', selectedGroupId);
-    console.log('Current groups:', groups.map(g => ({ id: g.id, name: g.name })));
-    
     // 如果有 groups 但 selectedGroupId 为 null，自动选中第一个
     if (groups.length > 0 && selectedGroupId === null) {
-      console.log('Auto-selecting first group:', groups[0].id);
       setSelectedGroupId(groups[0].id);
       return;
     }
@@ -392,12 +405,12 @@ function HomeContent() {
     newFormula.variableFormulaMapping = formulaForm.variableFormulaMapping;
     newFormula.subFormulas = formulaForm.subFormulas;
     // 添加分组字段
-    (newFormula as any).level1Group = formulaForm.level1Group;
-    (newFormula as any).level2Group = formulaForm.level2Group;
-    (newFormula as any).level3Group = formulaForm.level3Group;
-    (newFormula as any).level4Group = formulaForm.level4Group;
-    (newFormula as any).level5Group = formulaForm.level5Group;
-    (newFormula as any).level6Group = formulaForm.level6Group;
+    newFormula.level1Group = formulaForm.level1Group;
+    newFormula.level2Group = formulaForm.level2Group;
+    newFormula.level3Group = formulaForm.level3Group;
+    newFormula.level4Group = formulaForm.level4Group;
+    newFormula.level5Group = formulaForm.level5Group;
+    newFormula.level6Group = formulaForm.level6Group;
     const updatedGroups = groups.map((g) => {
       if (g.id === targetGroupId) {
         return { ...g, formulas: [...g.formulas, newFormula] };
@@ -486,6 +499,17 @@ function HomeContent() {
   };
 
   const handleSaveFormulaDetail = (updatedFormula: Formula) => {
+    // 验证必填字段
+    if (!updatedFormula.englishFormula?.trim()) {
+      toast.error('请填写英文公式');
+      return;
+    }
+    
+    if (!updatedFormula.chineseFormula?.trim()) {
+      toast.error('请填写中文公式');
+      return;
+    }
+    
     // 如果是新增模式（ID 为空），创建新公式
     if (!updatedFormula.id) {
       const newFormula: Formula = {
@@ -498,13 +522,13 @@ function HomeContent() {
       const updatedGroups = groups.map((group) => {
         if (group.id === targetGroupId) {
           // 找到与新公式 L1 相同的位置插入
-          const newL1 = (newFormula as any).level1Group || '';
+          const newL1 = newFormula.level1Group || '';
           let insertIndex = group.formulas.length; // 默认追加到末尾
           
           // 如果有相同的 L1 分组，插入到该分组的末尾
           if (newL1) {
             for (let i = group.formulas.length - 1; i >= 0; i--) {
-              if ((group.formulas[i] as any).level1Group === newL1) {
+              if (group.formulas[i].level1Group === newL1) {
                 insertIndex = i + 1;
                 break;
               }
@@ -552,10 +576,9 @@ function HomeContent() {
           if (level >= sortedGroups.length) {
             // 已经处理完所有分组层级，添加匹配的公式
             const matched = formulas.filter(f => {
-              const fAny = f as any;
               return parentPath.every((pathPart, idx) => {
-                const levelKey = `level${idx + 1}Group`;
-                return (fAny[levelKey] || '') === pathPart;
+                const levelKey = `level${idx + 1}Group` as keyof Formula;
+                return (f[levelKey] || '') === pathPart;
               });
             });
             sortedFormulas.push(...matched);
@@ -567,10 +590,9 @@ function HomeContent() {
           if (currentLevelOrder.length === 0) {
             // 当前层级没有排序，添加所有匹配的公式
             const matched = formulas.filter(f => {
-              const fAny = f as any;
               return parentPath.every((pathPart, idx) => {
-                const levelKey = `level${idx + 1}Group`;
-                return (fAny[levelKey] || '') === pathPart;
+                const levelKey = `level${idx + 1}Group` as keyof Formula;
+                return (f[levelKey] || '') === pathPart;
               });
             });
             sortedFormulas.push(...matched);
@@ -585,14 +607,13 @@ function HomeContent() {
           
           // 添加当前层级未排序的公式
           const remaining = formulas.filter(f => {
-            const fAny = f as any;
-            const levelKey = `level${level + 1}Group`;
-            const currentValue = fAny[levelKey] || '';
+            const levelKey = `level${level + 1}Group` as keyof Formula;
+            const currentValue = (f[levelKey] as string) || '';
             
             // 匹配父级路径
             const matchesParent = parentPath.every((pathPart, idx) => {
-              const parentLevelKey = `level${idx + 1}Group`;
-              return (fAny[parentLevelKey] || '') === pathPart;
+              const parentLevelKey = `level${idx + 1}Group` as keyof Formula;
+              return ((f[parentLevelKey] as string) || '') === pathPart;
             });
             
             // 且当前层级值不在排序列表中
@@ -672,12 +693,12 @@ function HomeContent() {
         subFormulas: formula.subFormulas || [],
         groupId: currentGroup.id,
         parentGroupId: rootGroup.id !== currentGroup.id ? rootGroup.id : null,
-        level1Group: (formula as any).level1Group || '',
-        level2Group: (formula as any).level2Group || '',
-        level3Group: (formula as any).level3Group || '',
-        level4Group: (formula as any).level4Group || '',
-        level5Group: (formula as any).level5Group || '',
-        level6Group: (formula as any).level6Group || '',
+        level1Group: formula.level1Group || '',
+        level2Group: formula.level2Group || '',
+        level3Group: formula.level3Group || '',
+        level4Group: formula.level4Group || '',
+        level5Group: formula.level5Group || '',
+        level6Group: formula.level6Group || '',
       });
     } else {
       setFormulaForm({
@@ -1543,16 +1564,11 @@ function HomeContent() {
         onClose={() => setShowCloudSyncModal(false)}
         groups={groups}
         onLoadData={(loadedGroups) => {
-          console.log('onLoadData called with', loadedGroups.length, 'groups');
-          if (loadedGroups.length > 0) {
-            console.log('First group:', loadedGroups[0].id, loadedGroups[0].name);
-          }
           setGroups(loadedGroups);
           saveData(loadedGroups);
           
           // 选中第一个分组
           if (loadedGroups.length > 0) {
-            console.log('Setting selectedGroupId to:', loadedGroups[0].id);
             setSelectedGroupId(loadedGroups[0].id);
           } else {
             setSelectedGroupId(null);

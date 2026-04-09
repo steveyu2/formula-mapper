@@ -41,7 +41,6 @@ export function AutocompleteInput({
 
   const handleFocus = () => {
     // 聚焦时立即显示所有选项
-    console.log('AutocompleteInput focus, options:', options);
     setFilteredOptions(options);
     setIsOpen(true);
   };
@@ -55,7 +54,6 @@ export function AutocompleteInput({
       const filtered = options.filter(option => 
         option.toLowerCase().includes(newValue.toLowerCase())
       );
-      console.log('Filtering, value:', newValue, 'filtered:', filtered);
       setFilteredOptions(filtered);
     } else {
       setFilteredOptions(options);
