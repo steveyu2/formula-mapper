@@ -1,0 +1,583 @@
+/**
+ * UniverSheet 组件
+ * 
+ * 主要的表格组件，使用 Univer 渲染
+ */
+
+'use client';
+
+import { useEffect, useRef, useState, useCallback } from 'react';
+import { createUniverInstance, setupFreeze, setupColumnWidths } from '@/lib/univer/config';
+import { SheetData, FormulaCellData, FormulaGroup, Formula, SheetRow } from '@/lib/types';
+import { FormulaViewer } from '@/components/formula/FormulaViewer';
+import { formulaCache } from '@/lib/formula/cache';
+import { saveData, loadData } from '@/lib/storage';
+import { toast } from 'sonner';
+
+/**
+ * 估算文本在给定宽度下需要多少行
+ */
+function estimateLines(text: string, widthPx: number, fontSize: number = 12): number {
+  if (!text || widthPx <= 0) return 1;
+  
+  // 中文字符约 12px 宽，英文字符约 7px 宽
+  let chineseCount = 0;
+  let englishCount = 0;
+  
+  for (const char of text) {
+    if (char === '\n') continue; // 忽略换行符
+    if (/[\u4e00-\u9fa5\u3000-\u303f\uff00-\uffef]/.test(char)) {
+      chineseCount++;
+    } else {
+      englishCount++;
+    }
+  }
+  
+  // 计算总像素宽度
+  const totalWidth = chineseCount * 12 + englishCount * 7;
+  
+  // 计算需要多少行
+  const lines = Math.ceil(totalWidth / widthPx);
+  
+  return Math.max(1, lines);
+}
+
+/**
+ * 将 SheetData 转换为 FormulaGroup 格式（用于保存到 localStorage）
+ */
+function convertSheetDataToGroups(sheetData: SheetData[]): FormulaGroup[] {
+  const groups: FormulaGroup[] = [];
+  
+  sheetData.forEach((sheet) => {
+    // 按 level1Group 分组
+    const level1Map = new Map<string, Map<string, Map<string, Formula[]>>>();
+    
+    sheet.rows.forEach((row) => {
+      const level1 = row.level1Group || '未分类';
+      const level2 = row.level2Group || '未分类';
+      const level3 = row.level3Group || '未分类';
+      
+      if (!level1Map.has(level1)) {
+        level1Map.set(level1, new Map());
+      }
+      const level2Map = level1Map.get(level1)!;
+      
+      if (!level2Map.has(level2)) {
+        level2Map.set(level2, new Map());
+      }
+      const level3Map = level2Map.get(level2)!;
+      
+      if (!level3Map.has(level3)) {
+        level3Map.set(level3, []);
+      }
+      
+      // 创建 Formula 对象
+      const formula: Formula = {
+        id: row.englishFormula.id,
+        name: row.level3Group,
+        englishFormula: row.englishFormula.englishFormula,
+        chineseFormula: row.englishFormula.chineseFormula,
+        variableMapping: row.englishFormula.variableMapping,
+        subFormulas: row.englishFormula.subFormulas,
+        createdAt: row.englishFormula.createdAt,
+        updatedAt: row.englishFormula.updatedAt,
+      };
+      
+      level3Map.get(level3)!.push(formula);
+    });
+    
+    // 构建嵌套的 Group 结构
+    level1Map.forEach((level2Map, level1Name) => {
+      const subGroups: FormulaGroup[] = [];
+      
+      level2Map.forEach((level3Map, level2Name) => {
+        level3Map.forEach((formulas, level3Name) => {
+          subGroups.push({
+            id: `group-${level1Name}-${level2Name}-${level3Name}`,
+            name: level3Name,
+            formulas,
+            subGroups: [],
+          });
+        });
+      });
+      
+      groups.push({
+        id: `group-${level1Name}`,
+        name: level1Name,
+        formulas: [],
+        subGroups,
+      });
+    });
+  });
+  
+  return groups;
+}
+
+/**
+ * 将 FormulaGroup 转换为 SheetData 格式（用于从 localStorage 加载）
+ */
+function convertGroupsToSheetData(groups: FormulaGroup[]): SheetData[] {
+  const sheet: SheetData = {
+    name: 'Sheet1',
+    rows: [],
+  };
+  
+  function processGroup(group: FormulaGroup, level1: string, level2: string) {
+    // 处理当前分组的公式
+    group.formulas.forEach((formula) => {
+      const row: SheetRow = {
+        level1Group: level1,
+        level2Group: level2,
+        level3Group: group.name,
+        englishFormula: {
+          id: formula.id,
+          englishFormula: formula.englishFormula,
+          chineseFormula: formula.chineseFormula,
+          variableMapping: formula.variableMapping || {},
+          subFormulas: formula.subFormulas || [],
+          createdAt: formula.createdAt,
+          updatedAt: formula.updatedAt,
+        },
+        chineseFormula: {
+          id: formula.id,
+          englishFormula: formula.englishFormula,
+          chineseFormula: formula.chineseFormula,
+          variableMapping: formula.variableMapping || {},
+          subFormulas: formula.subFormulas || [],
+          createdAt: formula.createdAt,
+          updatedAt: formula.updatedAt,
+        },
+      };
+      sheet.rows.push(row);
+    });
+    
+    // 递归处理子分组
+    group.subGroups.forEach((subGroup) => {
+      processGroup(subGroup, level1, level2);
+    });
+  }
+  
+  groups.forEach((group) => {
+    // 处理一级分组
+    const level1 = group.name;
+    
+    // 处理二级分组
+    group.subGroups.forEach((subGroup) => {
+      const level2 = subGroup.name;
+      processGroup(subGroup, level1, level2);
+    });
+  });
+  
+  return [sheet];
+}
+
+interface UniverSheetProps {
+  data?: SheetData[];           // 表格数据
+  onDataChange?: (data: SheetData[]) => void;  // 数据变化回调
+  className?: string;
+}
+
+export function UniverSheet({ data, onDataChange, className }: UniverSheetProps) {
+  const containerRef = useRef<HTMLDivElement>(null);
+  const univerRef = useRef<{ univerAPI: any; workbook: any } | null>(null);
+  const [isReady, setIsReady] = useState(false);
+  const [viewerOpen, setViewerOpen] = useState(false);
+  const [selectedFormula, setSelectedFormula] = useState<FormulaCellData | null>(null);
+  const [localData, setLocalData] = useState<SheetData[] | null>(null);
+
+  /**
+   * 加载数据到 Univer
+   */
+  const loadDataToUniver = useCallback((sheetData: SheetData[]) => {
+  useEffect(() => {
+    if (!containerRef.current) return;
+
+    try {
+      console.log('Initializing Univer...');
+      
+      // 创建 Univer 实例
+      const { univerAPI, workbook } = createUniverInstance({
+        container: containerRef.current,
+      });
+
+      univerRef.current = { univerAPI, workbook };
+
+      // 配置冻结（表头固定）
+      setupFreeze(workbook, {
+        freezeRows: 1,  // 冻结第一行（表头）
+      });
+      
+      // 监听单元格点击事件（通过 workbook）
+      const sheet = workbook.getActiveSheet();
+      
+      // TODO: Univer 的事件监听 API 需要进一步研究
+      // 目前使用简单的点击处理
+
+      setIsReady(true);
+      console.log('Univer initialized successfully');
+      
+      // 如果有传入数据，使用传入的数据
+      if (data && data.length > 0) {
+        console.log('Using provided data');
+        return;
+      }
+      
+      // 否则尝试从 localStorage 加载数据
+      try {
+        const groups = loadData();
+        if (groups && groups.length > 0) {
+          console.log('Loading data from localStorage:', groups.length, 'groups');
+          const sheetData = convertGroupsToSheetData(groups);
+          setLocalData(sheetData);  // 设置 state，触发 useEffect
+        }
+      } catch (error) {
+        console.error('Failed to load from localStorage:', error);
+      }
+
+      // 清理函数
+      return () => {
+        if (univerRef.current) {
+          univerAPI.dispose();
+          univerRef.current = null;
+          formulaCache.clear();
+        }
+      };
+    } catch (error) {
+      console.error('Failed to initialize Univer:', error);
+      toast.error('表格初始化失败');
+    }
+  }, []);
+
+  // 加载数据
+  useEffect(() => {
+    if (!isReady) return;
+    
+    // 优先使用传入的 data，否则使用 localData
+    const dataToLoad = data || localData;
+    
+    if (dataToLoad && dataToLoad.length > 0) {
+      console.log('Loading data to Univer:', dataToLoad.length, 'sheets');
+      loadDataToUniver(dataToLoad);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [data, localData, isReady]);
+
+  /**
+   * 加载数据到 Univer
+   */
+  const loadDataToUniver = useCallback((sheetData: SheetData[]) => {
+    if (!univerRef.current || sheetData.length === 0) {
+      console.log('No data or Univer not ready');
+      return;
+    }
+
+    const { univerAPI, workbook } = univerRef.current;
+    
+    try {
+      console.log('Loading data to Univer:', sheetData.length, 'sheets');
+      
+      const data = sheetData[0]; // 暂时只处理第一个 Sheet
+      
+      // 表头行 - 对应 swapdata.xlsx 的 10 列
+      const headers = ['模块', '代码', '全称', '名称', '条件', '计算方', '计算公式', '计算依据', '说明', '数据规范'];
+      
+      // 设置表头（使用 Excel 原始颜色 #04B49C 绿色）
+      headers.forEach((header, colIndex) => {
+        univerAPI.executeCommand('sheet.command.set-range-values', {
+          value: { 
+            v: header,
+            s: {
+              bl: 1, // 粗体
+              bg: { rgb: '04B49C' }, // Excel 原始绿色
+              cl: { rgb: '000000' }, // 黑色文字
+              ht: 2, // 居中对齐 (0=左, 1=右, 2=中)
+              vt: 2, // 垂直居中
+            },
+          },
+          range: { 
+            startRow: 0, 
+            startColumn: colIndex, 
+            endRow: 0, 
+            endColumn: colIndex 
+          },
+        });
+      });
+      
+      // 冻结第一行
+      univerAPI.executeCommand('sheet.command.set-frozen', {
+        startRow: 1,  // 冻结第 1 行（索引从 0 开始，所以 1 表示冻结第一行）
+        startColumn: 0,
+      });
+      
+      // 计算最优列宽（基于内容）
+      const calculateOptimalWidth = (text: string, fontSize: number = 12): number => {
+        if (!text) return 80; // 最小宽度
+        
+        // 计算中文字符和英文字符数量
+        let chineseCount = 0;
+        let englishCount = 0;
+        
+        for (const char of text) {
+          // 中文字符范围（包括常用汉字）
+          if (/[\u4e00-\u9fa5\u3000-\u303f\uff00-\uffef]/.test(char)) {
+            chineseCount++;
+          } else {
+            englishCount++;
+          }
+        }
+        
+        // 中文约 12px 宽，英文约 7px 宽
+        const pixelWidth = chineseCount * 12 + englishCount * 7;
+        
+        // 转换为 Univer 的列宽单位（大约 1px = 0.15 单位）
+        const univerWidth = Math.max(80, Math.min(400, pixelWidth * 0.15 + 20));
+        
+        return Math.ceil(univerWidth);
+      };
+      
+      // 为每一列计算最优宽度（基于所有行的内容）
+      const columnWidths = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0]; // 10 列
+      
+      data.rows.forEach((row) => {
+        const values = [
+          row.level1Group,
+          row.level2Group,
+          row.englishFormula.variableMapping?.['全称'] || '',
+          row.level3Group,
+          row.level4Group || '',
+          row.level5Group || '',
+          row.englishFormula.englishFormula || '',
+          row.level6Group || row.englishFormula.description || '',
+          row.englishFormula.chineseFormula || '',
+          row.englishFormula.variableMapping?.['数据规范'] || '',
+        ];
+        
+        values.forEach((value, colIndex) => {
+          if (value) {
+            const width = calculateOptimalWidth(value);
+            columnWidths[colIndex] = Math.max(columnWidths[colIndex], width);
+          }
+        });
+      });
+      
+      // 应用列宽（使用正确的 Univer API）
+      columnWidths.forEach((width, colIndex) => {
+        const sheet = workbook.getActiveSheet();
+        sheet.setColumnWidth(colIndex, width);
+      });
+      
+      // 设置数据行
+      data.rows.forEach((row, rowIndex) => {
+        const r = rowIndex + 1; // 从第 1 行开始（第 0 行是表头）
+        
+        // 通用样式（带换行）
+        const cellStyleWithWrap = {
+          ht: 0, // 左对齐
+          vt: 2, // 垂直居中
+          tb: 2, // 自动换行 (1=截断, 2=换行, 3=溢出)
+        };
+        
+        // 居中对齐样式（用于短文本列）
+        const cellStyleCenter = {
+          ht: 2, // 居中
+          vt: 2, // 垂直居中
+          tb: 1, // 截断（不换行）
+        };
+        
+        // A列 - 模块（居中，不换行）
+        univerAPI.executeCommand('sheet.command.set-range-values', {
+          value: { v: row.level1Group, s: cellStyleCenter },
+          range: { startRow: r, startColumn: 0, endRow: r, endColumn: 0 },
+        });
+        
+        // B列 - 代码（居中，不换行）
+        univerAPI.executeCommand('sheet.command.set-range-values', {
+          value: { v: row.level2Group, s: cellStyleCenter },
+          range: { startRow: r, startColumn: 1, endRow: r, endColumn: 1 },
+        });
+        
+        // C列 - 全称（左对齐，换行）
+        univerAPI.executeCommand('sheet.command.set-range-values', {
+          value: { v: row.englishFormula.variableMapping?.['全称'] || '', s: cellStyleWithWrap },
+          range: { startRow: r, startColumn: 2, endRow: r, endColumn: 2 },
+        });
+        
+        // D列 - 名称（左对齐，换行）
+        univerAPI.executeCommand('sheet.command.set-range-values', {
+          value: { v: row.level3Group, s: cellStyleWithWrap },
+          range: { startRow: r, startColumn: 3, endRow: r, endColumn: 3 },
+        });
+        
+        // E列 - 条件（居中，不换行）
+        univerAPI.executeCommand('sheet.command.set-range-values', {
+          value: { v: row.level4Group || '', s: cellStyleCenter },
+          range: { startRow: r, startColumn: 4, endRow: r, endColumn: 4 },
+        });
+        
+        // F列 - 计算方（居中，不换行）
+        univerAPI.executeCommand('sheet.command.set-range-values', {
+          value: { v: row.level5Group || '', s: cellStyleCenter },
+          range: { startRow: r, startColumn: 5, endRow: r, endColumn: 5 },
+        });
+        
+        // G列 - 计算公式（左对齐，换行）
+        univerAPI.executeCommand('sheet.command.set-range-values', {
+          value: { v: row.englishFormula.englishFormula || '', s: cellStyleWithWrap },
+          range: { startRow: r, startColumn: 6, endRow: r, endColumn: 6 },
+        });
+        
+        // H列 - 计算依据（左对齐，换行）
+        univerAPI.executeCommand('sheet.command.set-range-values', {
+          value: { v: row.level6Group || row.englishFormula.description || '', s: cellStyleWithWrap },
+          range: { startRow: r, startColumn: 7, endRow: r, endColumn: 7 },
+        });
+        
+        // I列 - 说明（左对齐，换行）
+        univerAPI.executeCommand('sheet.command.set-range-values', {
+          value: { v: row.englishFormula.chineseFormula || '', s: cellStyleWithWrap },
+          range: { startRow: r, startColumn: 8, endRow: r, endColumn: 8 },
+        });
+        
+        // J列 - 数据规范（左对齐，换行）
+        univerAPI.executeCommand('sheet.command.set-range-values', {
+          value: { v: row.englishFormula.variableMapping?.['数据规范'] || '', s: cellStyleWithWrap },
+          range: { startRow: r, startColumn: 9, endRow: r, endColumn: 9 },
+        });
+        
+        // 计算并设置行高（基于内容最多的列）
+        const values = [
+          row.level1Group,
+          row.level2Group,
+          row.englishFormula.variableMapping?.['全称'] || '',
+          row.level3Group,
+          row.level4Group || '',
+          row.level5Group || '',
+          row.englishFormula.englishFormula || '',
+          row.level6Group || row.englishFormula.description || '',
+          row.englishFormula.chineseFormula || '',
+          row.englishFormula.variableMapping?.['数据规范'] || '',
+        ];
+        
+        // 计算需要换行的列的最大行数
+        let maxLines = 1;
+        const columnWidthsInPx = [
+          columnWidths[0] / 0.15, // 转换回 px
+          columnWidths[1] / 0.15,
+          columnWidths[2] / 0.15,
+          columnWidths[3] / 0.15,
+          columnWidths[4] / 0.15,
+          columnWidths[5] / 0.15,
+          columnWidths[6] / 0.15,
+          columnWidths[7] / 0.15,
+          columnWidths[8] / 0.15,
+          columnWidths[9] / 0.15,
+        ];
+        
+        // 只检查需要换行的列（C, D, G, H, I, J）
+        [2, 3, 6, 7, 8, 9].forEach((colIndex) => {
+          const text = values[colIndex];
+          if (text && text.length > 0) {
+            const widthPx = columnWidthsInPx[colIndex];
+            // 计算这个文本在给定宽度下需要多少行
+            const lines = estimateLines(text, widthPx);
+            maxLines = Math.max(maxLines, lines);
+          }
+        });
+        
+        // 设置行高（每行约 20px，最小 25px）
+        const rowHeight = Math.max(25, maxLines * 20 + 10);
+        const sheet = workbook.getActiveSheet();
+        sheet.setRowHeight(r, rowHeight);
+      });
+      
+      console.log('Data loaded:', data.rows.length, 'rows');
+      toast.success(`已加载 ${data.rows.length} 行数据`);
+      
+      // 保存到 localStorage
+      try {
+        const groups = convertSheetDataToGroups(sheetData);
+        saveData(groups);
+        console.log('Data saved to localStorage:', groups.length, 'groups');
+      } catch (error) {
+        console.error('Failed to save data:', error);
+      }
+    } catch (error) {
+      console.error('Failed to load data:', error);
+      toast.error('数据加载失败');
+    }
+  }, []);
+
+  /**
+   * 查看公式详情
+   */
+  const handleViewFormula = useCallback((formulaData: FormulaCellData) => {
+    setSelectedFormula(formulaData);
+    setViewerOpen(true);
+  }, []);
+
+  /**
+   * 编辑公式
+   */
+  const handleEditFormula = useCallback((formulaData: FormulaCellData) => {
+    // TODO: 打开公式编辑器
+    toast.info('公式编辑器开发中...');
+  }, []);
+
+  /**
+   * 删除公式
+   */
+  const handleDeleteFormula = useCallback((rowIndex: number) => {
+    if (!confirm('确定要删除这行数据吗？')) return;
+    
+    // TODO: 实现删除逻辑
+    toast.success('已删除');
+  }, []);
+
+  return (
+    <div className={`relative w-full h-full ${className || ''}`}>
+      {/* Univer 容器 */}
+      <div
+        ref={containerRef}
+        className="w-full h-full"
+        style={{ minHeight: '600px' }}
+      />
+      
+      {/* 加载状态 */}
+      {!isReady && (
+        <div className="absolute inset-0 flex items-center justify-center bg-gray-50">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+            <p className="text-gray-600">正在加载表格...</p>
+          </div>
+        </div>
+      )}
+      
+      {/* 公式查看器 */}
+      {selectedFormula && (
+        <FormulaViewer
+          isOpen={viewerOpen}
+          onClose={() => setViewerOpen(false)}
+          formulaData={selectedFormula}
+        />
+      )}
+      
+      {/* 操作按钮面板（临时） */}
+      {isReady && (
+        <div className="absolute top-4 right-4 flex gap-2 z-10">
+          <button
+            onClick={() => toast.info('Excel 导出功能开发中...')}
+            className="px-3 py-1.5 bg-white border border-gray-300 rounded-lg text-sm hover:bg-gray-50 transition-colors shadow-sm"
+          >
+            📤 导出 Excel
+          </button>
+          <button
+            onClick={() => toast.info('JSON 导出功能开发中...')}
+            className="px-3 py-1.5 bg-white border border-gray-300 rounded-lg text-sm hover:bg-gray-50 transition-colors shadow-sm"
+          >
+            📤 导出 JSON
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
