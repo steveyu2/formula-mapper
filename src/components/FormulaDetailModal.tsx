@@ -17,6 +17,7 @@ interface FormulaDetailModalProps {
   onSave: (formula: Formula) => void;
   allFormulas?: Record<string, Formula>;
   groups?: any[];
+  isPreviewMode?: boolean; // 预览模式：只显示预览界面，隐藏编辑UI
 }
 
 export function FormulaDetailModal({
@@ -26,12 +27,13 @@ export function FormulaDetailModal({
   onSave,
   allFormulas = {},
   groups = [],
+  isPreviewMode = false,
 }: FormulaDetailModalProps) {
   const [editFormula, setEditFormula] = useState<Formula | null>(null);
   const [ast, setAst] = useState<any>(null);
   const [mapping, setMapping] = useState<Record<string, string>>({});
   const [error, setError] = useState<string>('');
-  const [activeTab, setActiveTab] = useState<'edit' | 'preview'>('edit');
+  const [activeTab, setActiveTab] = useState<'edit' | 'preview'>(isPreviewMode ? 'preview' : 'edit');
 
   useEffect(() => {
     if (formula && isOpen) {
@@ -75,7 +77,7 @@ export function FormulaDetailModal({
       >
         {/* 头部 */}
         <div className="px-6 py-4 border-b flex items-center justify-between">
-          <h3 className="text-lg font-semibold">编辑公式</h3>
+          <h3 className="text-lg font-semibold">{isPreviewMode ? '公式详情' : '编辑公式'}</h3>
           <button
             onClick={onClose}
             className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
@@ -86,47 +88,49 @@ export function FormulaDetailModal({
           </button>
         </div>
 
-        {/* Tab 切换 */}
-        <div className="px-6 border-b">
-          <div className="flex gap-4">
-            <button
-              onClick={() => setActiveTab('edit')}
-              className={`px-4 py-3 text-sm font-medium border-b-2 transition-colors ${
-                activeTab === 'edit'
-                  ? 'border-blue-500 text-blue-600'
-                  : 'border-transparent text-gray-500 hover:text-gray-700'
-              }`}
-            >
-              <div className="flex items-center gap-2">
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                </svg>
-                编辑
-              </div>
-            </button>
-            <button
-              onClick={() => setActiveTab('preview')}
-              className={`px-4 py-3 text-sm font-medium border-b-2 transition-colors ${
-                activeTab === 'preview'
-                  ? 'border-blue-500 text-blue-600'
-                  : 'border-transparent text-gray-500 hover:text-gray-700'
-              }`}
-            >
-              <div className="flex items-center gap-2">
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-                </svg>
-                预览
-              </div>
-            </button>
+        {/* Tab 切换 - 预览模式下隐藏 */}
+        {!isPreviewMode && (
+          <div className="px-6 border-b">
+            <div className="flex gap-4">
+              <button
+                onClick={() => setActiveTab('edit')}
+                className={`px-4 py-3 text-sm font-medium border-b-2 transition-colors ${
+                  activeTab === 'edit'
+                    ? 'border-blue-500 text-blue-600'
+                    : 'border-transparent text-gray-500 hover:text-gray-700'
+                }`}
+              >
+                <div className="flex items-center gap-2">
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                  </svg>
+                  编辑
+                </div>
+              </button>
+              <button
+                onClick={() => setActiveTab('preview')}
+                className={`px-4 py-3 text-sm font-medium border-b-2 transition-colors ${
+                  activeTab === 'preview'
+                    ? 'border-blue-500 text-blue-600'
+                    : 'border-transparent text-gray-500 hover:text-gray-700'
+                }`}
+              >
+                <div className="flex items-center gap-2">
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                  </svg>
+                  预览
+                </div>
+              </button>
+            </div>
           </div>
-        </div>
+        )}
 
         {/* 内容区 */}
         <div className="p-2.5 space-y-2.5 max-h-[calc(100vh-200px)] overflow-y-auto">
-          {/* 编辑 Tab */}
-          {activeTab === 'edit' && (
+          {/* 编辑 Tab - 预览模式下隐藏 */}
+          {activeTab === 'edit' && !isPreviewMode && (
             <>
               {/* 分组字段 */}
               <div className="grid grid-cols-2 gap-2.5">
@@ -353,20 +357,22 @@ export function FormulaDetailModal({
           )}
         </div>
 
-        {/* 底部按钮 */}
+        {/* 底部按钮 - 预览模式下只显示关闭 */}
         <div className="px-6 py-4 border-t flex justify-end gap-3">
           <button
             onClick={onClose}
             className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
           >
-            取消
+            {isPreviewMode ? '关闭' : '取消'}
           </button>
-          <button
-            onClick={handleSave}
-            className="px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg transition-colors"
-          >
-            更新
-          </button>
+          {!isPreviewMode && (
+            <button
+              onClick={handleSave}
+              className="px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg transition-colors"
+            >
+              更新
+            </button>
+          )}
         </div>
       </div>
     </div>

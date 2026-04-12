@@ -135,6 +135,7 @@ function VersionPreviewContent() {
             }}
             allFormulas={{}}
             groups={groups}
+            isPreviewMode={true}
           />
         )}
       </div>
