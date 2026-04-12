@@ -27,6 +27,13 @@ Formula Mapper is a powerful and intuitive formula management tool featuring an 
 - **Formula Visualization**: Automatic formula parsing and rendering for better readability
 - **AST Tree Display**: Tree structure visualization in edit modal
 
+### 🧮 Formula Calculation
+- **Interactive Calculation Tab**: Dedicated tab for formula calculation with variable input
+- **Formula Binding Support**: Bind variables to other formulas or sub-formulas for complex calculations
+- **Real-time Calculation**: Auto-calculate results as you input variable values
+- **Calculation Process Display**: Shows complete expression with variable substitution and formula expansion
+- **Multi-level Formula Resolution**: Automatically calculates bound formulas and uses results in main formula
+
 ### ☁️ Cloud Synchronization
 - **Cloudflare KV Integration**: Optional cloud data sync functionality
 - **Version History**: Maintains historical versions with rollback support
@@ -131,6 +138,7 @@ formula-mapper/
 │   │   ├── FormulaSpreadsheet.tsx      # Main spreadsheet component
 │   │   ├── SheetTabs.tsx               # Sheet tabs component
 │   │   ├── FormulaDetailModal.tsx      # Formula detail/edit modal
+│   │   ├── CalculationTab.tsx          # Formula calculation tab component
 │   │   ├── SortModal.tsx               # Group sorting modal
 │   │   ├── CloudSyncModal.tsx          # Cloud sync modal
 │   │   ├── AutocompleteInput.tsx       # Autocomplete input
@@ -140,7 +148,8 @@ formula-mapper/
 │   │   └── ui/                         # shadcn/ui base components
 │   └── lib/
 │       ├── types.ts                    # TypeScript type definitions
-│       ├── parser.ts                   # Formula parser
+│       ├── parser.ts                   # Formula parser (tokenizer + AST builder)
+│       ├── calculator.ts               # Formula calculator (evaluation engine)
 │       ├── mapper.ts                   # Variable mapper
 │       ├── storage.ts                  # LocalStorage wrapper
 │       ├── importExport.ts            # Import/export functionality
