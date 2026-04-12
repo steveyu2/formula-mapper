@@ -356,20 +356,32 @@ export function FormulaSpreadsheet({
         cellClassName: 'sticky-cell',
         cell: ({ row }) => (
           <div className="flex items-center gap-1 px-3 py-2.5 whitespace-nowrap">
-            <button
-              onClick={() => onRowClick(row.original.formula)}
-              className="text-blue-500 hover:text-blue-700 px-2 py-1 rounded hover:bg-blue-50 text-xs transition-colors whitespace-nowrap"
-              title="编辑"
-            >
-              编辑
-            </button>
-            <button
-              onClick={() => onDeleteFormula(row.original.formulaId)}
-              className="text-red-500 hover:text-red-700 px-2 py-1 rounded hover:bg-red-50 text-xs transition-colors whitespace-nowrap"
-              title="删除"
-            >
-              删除
-            </button>
+            {isPreviewMode ? (
+              <button
+                onClick={() => onRowClick(row.original.formula)}
+                className="text-blue-500 hover:text-blue-700 px-2 py-1 rounded hover:bg-blue-50 text-xs transition-colors whitespace-nowrap"
+                title="预览公式"
+              >
+                预览
+              </button>
+            ) : (
+              <>
+                <button
+                  onClick={() => onRowClick(row.original.formula)}
+                  className="text-blue-500 hover:text-blue-700 px-2 py-1 rounded hover:bg-blue-50 text-xs transition-colors whitespace-nowrap"
+                  title="编辑"
+                >
+                  编辑
+                </button>
+                <button
+                  onClick={() => onDeleteFormula(row.original.formulaId)}
+                  className="text-red-500 hover:text-red-700 px-2 py-1 rounded hover:bg-red-50 text-xs transition-colors whitespace-nowrap"
+                  title="删除"
+                >
+                  删除
+                </button>
+              </>
+            )}
           </div>
         ),
       },
