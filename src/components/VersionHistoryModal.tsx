@@ -10,6 +10,7 @@ import { format } from 'date-fns';
 import { zhCN } from 'date-fns/locale';
 import { VersionPreviewWindow } from './VersionPreviewWindow';
 import { Input } from '@/components/ui/input';
+import { Tooltip } from '@/components/Tooltip';
 
 interface VersionHistoryModalProps {
   isOpen: boolean;
@@ -169,12 +170,14 @@ export function VersionHistoryModal({ isOpen, onClose, config, onLoadVersion }: 
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <svg className="w-5 h-5 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-            </svg>
-            版本历史
-          </DialogTitle>
+          <Tooltip content="📌 固定版本：每次保存自动创建，最多100个，支持备注编辑 | 📅 自动版本：同日期覆盖，最多100个不同日期">
+            <DialogTitle className="flex items-center gap-2 cursor-help">
+              <svg className="w-5 h-5 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+              版本历史
+            </DialogTitle>
+          </Tooltip>
         </DialogHeader>
 
         {isLoading ? (
