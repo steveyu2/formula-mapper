@@ -9,6 +9,7 @@ import { ASTTree } from '@/components/ASTTree';
 import { SubFormulaManager } from '@/components/SubFormulaManager';
 import { FormulaReferenceSelector } from '@/components/FormulaReferenceSelector';
 import { FormulaRenderer } from '@/components/FormulaRenderer';
+import { CalculationTab } from '@/components/CalculationTab';
 import { SubFormulaModal } from '@/components/SubFormulaModal';
 import { FormulaPreviewModal } from '@/components/FormulaPreviewModal';
 import { loadData, saveData, loadColumnHeaders } from '@/lib/storage';
@@ -22,7 +23,7 @@ export default function FormulaEditorPage() {
   const [ast, setAst] = useState<any>(null);
   const [mapping, setMapping] = useState<Record<string, string>>({});
   const [error, setError] = useState<string>('');
-  const [activeTab, setActiveTab] = useState<'edit' | 'preview'>('edit');
+  const [activeTab, setActiveTab] = useState<'edit' | 'preview' | 'calculation'>('edit');
   const [groups, setGroups] = useState<FormulaGroup[]>([]);
   const [isSaving, setIsSaving] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
@@ -190,6 +191,21 @@ export default function FormulaEditorPage() {
                 预览
               </div>
             </button>
+            <button
+              onClick={() => setActiveTab('calculation')}
+              className={`px-3 py-1.5 text-sm font-medium rounded transition-colors ${
+                activeTab === 'calculation'
+                  ? 'bg-blue-100 text-blue-700'
+                  : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'
+              }`}
+            >
+              <div className="flex items-center gap-1.5">
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
+                </svg>
+                计算
+              </div>
+            </button>
           </div>
         </div>
         <div className="flex gap-3">
@@ -341,7 +357,7 @@ export default function FormulaEditorPage() {
                 <label className="block text-sm font-medium text-gray-700 mb-1.5">公式渲染视图</label>
                 <div className="border border-gray-300 rounded-lg p-4 bg-white">
                   <FormulaRenderer
-                    formula={editFormula.chineseFormula}
+                    formula={editFormula.englishFormula}
                     mapping={mapping}
                     formulaReferences={Object.entries(editFormula.variableFormulaMapping || {}).reduce((acc, [variable, refFormulaId]) => {
                       // 检查是否是子公式
@@ -413,6 +429,16 @@ export default function FormulaEditorPage() {
               )}
             </div>
             </div>
+          </div>
+
+          {/* 计算 Tab */}
+          <div className={activeTab === 'calculation' ? 'block' : 'hidden'}>
+            <CalculationTab
+              editFormula={editFormula}
+              groups={groups}
+              mapping={mapping}
+              ast={ast}
+            />
           </div>
         </div>
       </div>

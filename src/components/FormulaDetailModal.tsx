@@ -1,9 +1,10 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { Formula } from '@/lib/types';
+import { useState, useEffect, useCallback } from 'react';
+import { Formula, SubFormula } from '@/lib/types';
 import { FormulaParser } from '@/lib/parser';
 import { VariableMapper } from '@/lib/mapper';
+import { FormulaCalculator } from '@/lib/calculator';
 import { ASTTree } from './ASTTree';
 import { FormulaRenderer } from './FormulaRenderer';
 import { SubFormulaManager } from './SubFormulaManager';
@@ -34,14 +35,103 @@ export function FormulaDetailModal({
   const [ast, setAst] = useState<any>(null);
   const [mapping, setMapping] = useState<Record<string, string>>({});
   const [error, setError] = useState<string>('');
-  const [activeTab, setActiveTab] = useState<'edit' | 'preview'>(isPreviewMode ? 'preview' : 'edit');
+  const [activeTab, setActiveTab] = useState<'edit' | 'preview' | 'calculation'>(isPreviewMode ? 'preview' : 'edit');
+  
+  // 计算相关状态
+  const [variableValues, setVariableValues] = useState<Record<string, string>>({});
+  const [subFormulaVariableValues, setSubFormulaVariableValues] = useState<Record<string, Record<string, string>>>({});
+  const [calculationResult, setCalculationResult] = useState<{ result: number; steps: string[] } | null>(null);
+  const [calculationError, setCalculationError] = useState<string>('');
+  const [subFormulaMappings, setSubFormulaMappings] = useState<Record<string, Record<string, string>>>({});
 
   useEffect(() => {
     if (formula && isOpen) {
       setEditFormula({ ...formula });
       parseFormula(formula);
+      // 重置计算状态
+      setVariableValues({});
+      setSubFormulaVariableValues({});
+      setCalculationResult(null);
+      setCalculationError('');
     }
   }, [formula, isOpen]);
+
+  // 初始化子公式变量映射
+  useEffect(() => {
+    if (editFormula?.subFormulas && editFormula.subFormulas.length > 0) {
+      const mappings: Record<string, Record<string, string>> = {};
+      for (const subFormula of editFormula.subFormulas) {
+        try {
+          const mappingResult = VariableMapper.createMapping(
+            subFormula.englishFormula,
+            subFormula.chineseFormula
+          );
+          mappings[subFormula.id] = mappingResult.mapping;
+        } catch {
+          mappings[subFormula.id] = {};
+        }
+      }
+      setSubFormulaMappings(mappings);
+    }
+  }, [editFormula?.subFormulas]);
+
+  // 实时计算
+  const handleCalculate = useCallback(() => {
+    if (!ast) return;
+
+    try {
+      // 1. 计算子公式结果
+      const subFormulaResults: Record<string, number> = {};
+      if (editFormula?.subFormulas) {
+        for (const subFormula of editFormula.subFormulas) {
+          try {
+            const subAst = FormulaParser.parse(subFormula.englishFormula);
+            const subValues = subFormulaVariableValues[subFormula.id] || {};
+            const numericValues: Record<string, number> = {};
+            
+            for (const [key, val] of Object.entries(subValues)) {
+              if (val !== '') {
+                numericValues[key] = parseFloat(val);
+              }
+            }
+            
+            const result = FormulaCalculator.evaluate(subAst, numericValues);
+            // 使用子公式名称作为变量名
+            subFormulaResults[subFormula.name] = result.result;
+          } catch (err) {
+            // 子公式计算失败，跳过
+            console.warn(`子公式 ${subFormula.name} 计算失败:`, err);
+          }
+        }
+      }
+      
+      // 2. 收集主公式变量值
+      const mainValues: Record<string, number> = {};
+      for (const [key, val] of Object.entries(variableValues)) {
+        if (val !== '') {
+          mainValues[key] = parseFloat(val);
+        }
+      }
+      
+      // 3. 合并子公式结果
+      Object.assign(mainValues, subFormulaResults);
+      
+      // 4. 计算主公式
+      const result = FormulaCalculator.evaluate(ast, mainValues);
+      setCalculationResult(result);
+      setCalculationError('');
+    } catch (err) {
+      setCalculationError(err instanceof Error ? err.message : '计算错误');
+      setCalculationResult(null);
+    }
+  }, [ast, variableValues, subFormulaVariableValues, editFormula?.subFormulas]);
+
+  // 当变量值变化时自动计算
+  useEffect(() => {
+    if (activeTab === 'calculation') {
+      handleCalculate();
+    }
+  }, [activeTab, handleCalculate]);
 
   const parseFormula = (f: Formula) => {
     try {
@@ -122,6 +212,21 @@ export function FormulaDetailModal({
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
                   </svg>
                   预览
+                </div>
+              </button>
+              <button
+                onClick={() => setActiveTab('calculation')}
+                className={`px-4 py-3 text-sm font-medium border-b-2 transition-colors ${
+                  activeTab === 'calculation'
+                    ? 'border-blue-500 text-blue-600'
+                    : 'border-transparent text-gray-500 hover:text-gray-700'
+                }`}
+              >
+                <div className="flex items-center gap-2">
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
+                  </svg>
+                  计算
                 </div>
               </button>
             </div>
@@ -363,6 +468,116 @@ export function FormulaDetailModal({
                       <span className="font-medium">{(editFormula as any).level6Group || '-'}</span>
                     </div>
                   </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* 计算 Tab */}
+          {activeTab === 'calculation' && (
+            <div className="space-y-4">
+              {/* 主公式变量输入 */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">主公式变量</label>
+                <div className="border border-gray-300 rounded-lg p-4 bg-gray-50">
+                  {Object.keys(mapping).length > 0 ? (
+                    <div className="space-y-2">
+                      {Object.entries(mapping).map(([eng, chi]) => (
+                        <div key={eng} className="flex items-center gap-3">
+                          <span className="text-sm text-gray-700 w-24 text-right">{chi}</span>
+                          <input
+                            type="number"
+                            step="any"
+                            value={variableValues[eng] || ''}
+                            onChange={(e) => setVariableValues({...variableValues, [eng]: e.target.value})}
+                            placeholder="输入数值"
+                            className="flex-1 px-3 py-2 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          />
+                          <span className="text-xs text-gray-400 font-mono w-20">{eng}</span>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-sm text-gray-500">无变量</p>
+                  )}
+                </div>
+              </div>
+
+              {/* 子公式变量输入 */}
+              {editFormula.subFormulas && editFormula.subFormulas.length > 0 && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">子公式变量</label>
+                  <div className="space-y-3">
+                    {editFormula.subFormulas.map((subFormula) => {
+                      const subMapping = subFormulaMappings[subFormula.id] || {};
+                      const subValues = subFormulaVariableValues[subFormula.id] || {};
+                      
+                      return (
+                        <div key={subFormula.id} className="border border-gray-300 rounded-lg p-4 bg-gray-50">
+                          <h4 className="text-sm font-semibold text-gray-900 mb-3">
+                            {subFormula.name}
+                            <span className="ml-2 text-xs text-gray-500 font-mono">{subFormula.englishFormula}</span>
+                          </h4>
+                          {Object.keys(subMapping).length > 0 ? (
+                            <div className="space-y-2">
+                              {Object.entries(subMapping).map(([eng, chi]) => (
+                                <div key={eng} className="flex items-center gap-3">
+                                  <span className="text-sm text-gray-700 w-24 text-right">{chi}</span>
+                                  <input
+                                    type="number"
+                                    step="any"
+                                    value={subValues[eng] || ''}
+                                    onChange={(e) => {
+                                      const newSubValues = {...subValues, [eng]: e.target.value};
+                                      setSubFormulaVariableValues({
+                                        ...subFormulaVariableValues,
+                                        [subFormula.id]: newSubValues
+                                      });
+                                    }}
+                                    placeholder="输入数值"
+                                    className="flex-1 px-3 py-2 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                  />
+                                  <span className="text-xs text-gray-400 font-mono w-20">{eng}</span>
+                                </div>
+                              ))}
+                            </div>
+                          ) : (
+                            <p className="text-sm text-gray-500">无变量</p>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {/* 计算过程和结果 */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">计算结果</label>
+                <div className="border border-gray-300 rounded-lg p-4 bg-white">
+                  {calculationError ? (
+                    <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded">
+                      <p className="text-sm font-medium">计算错误</p>
+                      <p className="text-sm mt-1">{calculationError}</p>
+                    </div>
+                  ) : calculationResult ? (
+                    <div>
+                      <div className="space-y-1 text-sm font-mono text-gray-700 mb-4">
+                        <div className="text-xs text-gray-500 mb-2">计算过程:</div>
+                        {calculationResult.steps.map((step, idx) => (
+                          <div key={idx} className="py-1">{step}</div>
+                        ))}
+                      </div>
+                      <div className="pt-3 border-t border-gray-200">
+                        <span className="text-xs text-gray-500">最终结果: </span>
+                        <span className="text-2xl font-bold text-blue-600 ml-2">
+                          {calculationResult.result}
+                        </span>
+                      </div>
+                    </div>
+                  ) : (
+                    <p className="text-sm text-gray-500">请输入变量值以查看计算结果</p>
+                  )}
                 </div>
               </div>
             </div>

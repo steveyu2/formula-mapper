@@ -21,25 +21,32 @@ export function FormulaReferenceSelector({
   const variables = useMemo(() => extractVariables(englishFormula), [englishFormula]);
   const [openDropdown, setOpenDropdown] = useState<string | null>(null);
   const [searchTerms, setSearchTerms] = useState<Record<string, string>>({});
-  const [dropdownPosition, setDropdownPosition] = useState<{ top: number; left: number; width: number } | null>(null);
+  const [dropdownPosition, setDropdownPosition] = useState<{ top: number; left: number; width: number; opensUpward?: boolean } | null>(null);
   const dropdownRefs = useRef<Record<string, HTMLDivElement | null>>({});
   const triggerRefs = useRef<Record<string, HTMLButtonElement | null>>({});
 
   // 构建带层级路径的公式列表
   const allFormulas = useMemo(() => {
-    const formulasWithPaths: (Formula & { groupName: string; level3?: string; level4?: string; displayName: string })[] = [];
+    const formulasWithPaths: (Formula & { groupName: string; level3?: string; level4?: string; level5?: string; level6?: string; displayName: string })[] = [];
     
     groups.forEach(group => {
       group.formulas.forEach(formula => {
         const level3 = (formula as any).level3Group || '';
-        const level4 = (formula as any).level4Group || formula.name;
-        const displayName = level3 ? `${level3}/${level4}` : level4;
+        const level4 = (formula as any).level4Group || '';
+        const level5 = (formula as any).level5Group || '';
+        const level6 = (formula as any).level6Group || '';
+        
+        // 构建显示名称：L3/L4/L5/L6
+        const parts = [level3, level4, level5, level6].filter(Boolean);
+        const displayName = parts.length > 0 ? parts.join('/') : formula.name;
         
         formulasWithPaths.push({
           ...formula,
           groupName: group.name,
           level3,
           level4,
+          level5,
+          level6,
           displayName,
         });
       });
@@ -111,10 +118,19 @@ export function FormulaReferenceSelector({
       const trigger = triggerRefs.current[variable];
       if (trigger) {
         const rect = trigger.getBoundingClientRect();
+        const viewportHeight = window.innerHeight;
+        const spaceBelow = viewportHeight - rect.bottom;
+        const spaceAbove = rect.top;
+        const dropdownMaxHeight = 384; // 24rem
+        
+        // 决定向下还是向上弹出
+        const opensUpward = spaceBelow < dropdownMaxHeight && spaceAbove > spaceBelow;
+        
         setDropdownPosition({
-          top: rect.bottom + 4,
+          top: opensUpward ? rect.top - dropdownMaxHeight - 4 : rect.bottom + 4,
           left: rect.left,
           width: rect.width,
+          opensUpward,
         });
       }
     }
@@ -199,6 +215,7 @@ export function FormulaReferenceSelector({
                       left: `${dropdownPosition.left}px`, 
                       width: `${dropdownPosition.width}px`,
                       maxHeight: '24rem',
+                      overflow: 'hidden',
                     }}
                   >
                     {/* 搜索框 */}
@@ -243,7 +260,12 @@ export function FormulaReferenceSelector({
                               <svg className="w-3.5 h-3.5 text-purple-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" />
                               </svg>
-                              {subFormula.name}
+                              <span className="flex-1 truncate">
+                                {subFormula.name}
+                                {subFormula.englishFormula && (
+                                  <span className="ml-2 text-xs text-gray-400 font-mono">{subFormula.englishFormula}</span>
+                                )}
+                              </span>
                             </button>
                           ))}
                         </div>
