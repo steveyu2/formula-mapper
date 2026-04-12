@@ -95,27 +95,27 @@
 .touch-container table thead {
   position: sticky !important;
   top: 0 !important;
-  z-index: 20 !important;
+  z-index: 50 !important;
 }
 
 .touch-container table thead th {
   position: sticky !important;
   top: 0 !important;
-  z-index: 20 !important;
+  /* z-index 由内联样式控制，不使用 !important */
 }
 
 .touch-container table thead th.sticky {
   background-color: #f3f4f6;
-  z-index: 30;
+  z-index: 58;
 }
 
 .touch-container table tbody td.sticky {
-  z-index: 10;
+  z-index: 13;
 }
 
 .touch-container table tbody tr:hover td.sticky {
   background-color: #eff6ff !important;
-  z-index: 10;
+  z-index: 13;
 }
 
 /* 固定列阴影 */

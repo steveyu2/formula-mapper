@@ -9,7 +9,7 @@ import { SubFormulaManager } from '@/components/SubFormulaManager';
 import { GroupSelector } from '@/components/GroupSelector';
 import { AutocompleteInput } from '@/components/AutocompleteInput';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
-import { CloudSyncButton } from '@/components/CloudSyncButton';
+import { UnifiedMenuButton } from '@/components/UnifiedMenuButton';
 import { SheetTabs } from '@/components/SheetTabs';
 import { FormulaSpreadsheet } from '@/components/FormulaSpreadsheet';
 import { FormulaGroup, Formula, SubFormula } from '@/lib/types';
@@ -50,6 +50,7 @@ function HomeContent() {
   const [selectedFormulaId, setSelectedFormulaId] = useState<string | null>(null);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(true);
   const [cloudLoading, setCloudLoading] = useState(false);
+  const [isLoading, setIsLoading] = useState(true); // 初始加载状态
   const [columnHeaders, setColumnHeaders] = useState<{
     level1?: string;
     level2?: string;
@@ -102,11 +103,9 @@ function HomeContent() {
   const [isCreateFormulaModalOpen, setIsCreateFormulaModalOpen] = useState(false);
   const [editingFormula, setEditingFormula] = useState<Formula | null>(null);
   const [importError, setImportError] = useState<string>('');
-  const [showDataMenu, setShowDataMenu] = useState(false);
   const [showUrlImportModal, setShowUrlImportModal] = useState(false);
   const [importUrl, setImportUrl] = useState('');
   const [isImporting, setIsImporting] = useState(false);
-  const [showCloudSyncModal, setShowCloudSyncModal] = useState(false);
   const [confirmDialog, setConfirmDialog] = useState<{
     open: boolean;
     title: string;
@@ -122,7 +121,6 @@ function HomeContent() {
   });
 
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const dataMenuRef = useRef<HTMLDivElement>(null);
 
   const [newGroupName, setNewGroupName] = useState('');
   const [newGroupParentId, setNewGroupParentId] = useState<string | null>(null);
@@ -158,53 +156,85 @@ function HomeContent() {
     level6Group: '',
   });
 
+  // 监听来自编辑器窗口的更新消息
+  useEffect(() => {
+    const handleMessage = (event: MessageEvent) => {
+      if (event.data?.type === 'FORMULA_UPDATED') {
+        // 更新本地数据
+        if (event.data.groups) {
+          setGroups(event.data.groups);
+          saveData(event.data.groups);
+        }
+      }
+    };
+
+    window.addEventListener('message', handleMessage);
+    return () => window.removeEventListener('message', handleMessage);
+  }, []);
+
+  // 监听 isLoading 变化（临时调试，后续可移除）
+  useEffect(() => {
+    // console.log('[STATE] isLoading changed to:', isLoading);
+  }, [isLoading]);
+
   useEffect(() => {
     const savedGroups = loadData();
     const savedHeaders = loadColumnHeaders();
-    setGroups(savedGroups);
-    if (savedHeaders) {
-      setColumnHeaders(savedHeaders);
-    }
-
-    // 恢复缓存的分组选择和展开状态
-    const cachedSelectedGroupId = localStorage.getItem('selectedGroupId');
-    const cachedSidebarCollapsed = localStorage.getItem('sidebarCollapsed');
     
-    if (cachedSelectedGroupId) {
-      // 有缓存，恢复缓存的选中状态
-      setSelectedGroupId(cachedSelectedGroupId);
-    } else if (savedGroups.length > 0) {
-      // 没有缓存但有数据，默认选中第一个分组
-      setSelectedGroupId(savedGroups[0].id);
-    }
-    
-    if (cachedSidebarCollapsed) {
-      setSidebarCollapsed(cachedSidebarCollapsed === 'true');
-    }
+    // 使用 setTimeout 确保所有状态更新在下一个事件循环中执行
+    setTimeout(() => {
+      // 确保数据加载后再设置状态
+      if (savedGroups && savedGroups.length > 0) {
+        setGroups(savedGroups);
+        if (savedHeaders) {
+          setColumnHeaders(savedHeaders);
+        }
 
-    // 根据 URL 参数展开指定公式（仅在初始加载时）
-    if (urlFormulaId) {
-      // 查找公式所属的分组
-      for (const group of savedGroups) {
-        const formula = group.formulas.find(f => f.id === urlFormulaId);
-        if (formula) {
-          setSelectedGroupId(group.id);
-          setSelectedFormulaId(urlFormulaId);
-          break;
+        // 恢复缓存的分组选择
+        const cachedSelectedGroupId = localStorage.getItem('selectedGroupId');
+        const cachedSidebarCollapsed = localStorage.getItem('sidebarCollapsed');
+        
+        if (cachedSelectedGroupId) {
+          setSelectedGroupId(cachedSelectedGroupId);
+        } else if (savedGroups.length > 0) {
+          setSelectedGroupId(savedGroups[0].id);
+        }
+        
+        if (cachedSidebarCollapsed) {
+          setSidebarCollapsed(cachedSidebarCollapsed === 'true');
+        }
+
+        // 根据 URL 参数展开指定公式
+        if (urlFormulaId) {
+          for (const group of savedGroups) {
+            const formula = group.formulas.find(f => f.id === urlFormulaId);
+            if (formula) {
+              setSelectedGroupId(group.id);
+              setSelectedFormulaId(urlFormulaId);
+              break;
+            }
+          }
         }
       }
-    }
 
-    // 处理 cloud query 参数 - 每次都自动加载数据
-    if (urlCloudEndpoint) {
-      handleCloudQueryBind(urlCloudEndpoint);
-    }
+      // 处理 cloud query 参数
+      if (urlCloudEndpoint) {
+        handleCloudQueryBind(urlCloudEndpoint).finally(() => {
+          setIsLoading(false);
+        });
+      } else {
+        setIsLoading(false);
+      }
+    }, 0);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []); // 只在组件挂载时执行一次
 
   // 处理 cloud query 参数绑定
   const handleCloudQueryBind = async (endpoint: string) => {
-    if (cloudLoading) return;
+    if (cloudLoading) {
+      console.log('[Cloud] Already loading, skipping');
+      return;
+    }
     
     setCloudLoading(true);
     const startTime = Date.now();
@@ -305,17 +335,6 @@ function HomeContent() {
   useEffect(() => {
     localStorage.setItem('sidebarCollapsed', String(sidebarCollapsed));
   }, [sidebarCollapsed]);
-
-  // 点击外部关闭菜单
-  useEffect(() => {
-    const handleClickOutside = (e: MouseEvent) => {
-      if (dataMenuRef.current && !dataMenuRef.current.contains(e.target as Node)) {
-        setShowDataMenu(false);
-      }
-    };
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, []);
 
   // 获取分组路径
   const getGroupPath = (groupId: string): string => {
@@ -460,8 +479,9 @@ function HomeContent() {
 
   // Excel 视图相关处理函数
   const handleSpreadsheetRowClick = (formula: Formula) => {
-    setDetailFormula(formula);
-    setIsDetailModalOpen(true);
+    // 在新窗口中打开编辑器
+    const editorUrl = `/formula-editor/${formula.id}`;
+    window.open(editorUrl, '_blank', 'width=900,height=700,scrollbars=yes,resizable=yes');
   };
 
   const handleUpdateFormulaInSpreadsheet = (formulaId: string, updates: Partial<Formula>) => {
@@ -469,6 +489,18 @@ function HomeContent() {
       ...group,
       formulas: group.formulas.map((f) =>
         f.id === formulaId ? { ...f, ...updates } : f
+      ),
+    }));
+    setGroups(updatedGroups);
+    saveData(updatedGroups);
+  };
+
+  // 批量更新多个公式
+  const handleUpdateFormulasInSpreadsheet = (formulaIds: string[], updates: Partial<Formula>) => {
+    const updatedGroups = groups.map((group) => ({
+      ...group,
+      formulas: group.formulas.map((f) =>
+        formulaIds.includes(f.id) ? { ...f, ...updates } : f
       ),
     }));
     setGroups(updatedGroups);
@@ -850,8 +882,6 @@ function HomeContent() {
           setShowUrlImportModal(false);
           setImportUrl('');
           setImportError('');
-        } else if (showCloudSyncModal) {
-          setShowCloudSyncModal(false);
         }
       }
       
@@ -882,7 +912,6 @@ function HomeContent() {
     isDetailModalOpen,
     isSortModalOpen,
     showUrlImportModal,
-    showCloudSyncModal,
     editingFormula,
     newGroupName,
     handleCreateFormula,
@@ -893,7 +922,6 @@ function HomeContent() {
   const handleExport = () => {
     try {
       downloadExportData(groups);
-      setShowDataMenu(false);
       toast.success('数据导出成功');
     } catch (error) {
       toast.error('导出失败：' + (error instanceof Error ? error.message : '未知错误'));
@@ -925,7 +953,6 @@ function HomeContent() {
           }
           
           setImportError('');
-          setShowDataMenu(false);
           if (fileInputRef.current) {
             fileInputRef.current.value = '';
           }
@@ -967,7 +994,6 @@ function HomeContent() {
           
           setImportError('');
           setShowUrlImportModal(false);
-          setShowDataMenu(false);
           setImportUrl('');
           setIsImporting(false);
           setConfirmDialog(prev => ({ ...prev, open: false }));
@@ -1022,6 +1048,32 @@ function HomeContent() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-blue-100 to-blue-50">
+      {/* 初始加载透明遮罩 */}
+      {isLoading && (
+        <div className="fixed inset-0 bg-white/80 backdrop-blur-sm flex items-center justify-center z-[200] transition-opacity duration-300 ease-in-out">
+          <div className="flex flex-col items-center gap-4">
+            <div className="relative">
+              <div className="w-16 h-16 border-4 border-blue-200 rounded-full animate-spin border-t-blue-600"></div>
+              <div className="absolute inset-2 border-4 border-blue-100 rounded-full animate-spin border-b-blue-500" style={{ animationDirection: 'reverse', animationDuration: '0.8s' }}></div>
+            </div>
+            <div className="text-center">
+              <p className="text-lg font-semibold text-gray-700">正在加载数据</p>
+              <p className="text-sm text-gray-500 mt-1">请稍候...</p>
+            </div>
+          </div>
+        </div>
+      )}
+      
+      {/* 真实内容 */}
+      <div 
+        className="px-2.5 w-full max-w-full overflow-hidden transition-opacity duration-300 ease-in-out"
+        style={{ 
+          paddingTop: '10px', 
+          paddingBottom: '10px',
+          opacity: isLoading ? 0.3 : 1,
+          pointerEvents: isLoading ? 'none' : 'auto'
+        }}
+      >
       {/* 云端加载提示 */}
       {cloudLoading && (
         <div className="fixed inset-0 bg-black/30 flex items-center justify-center z-[100]">
@@ -1041,141 +1093,60 @@ function HomeContent() {
       <div className="px-2.5 w-full max-w-full overflow-hidden" style={{ paddingTop: '10px', paddingBottom: '10px' }}>
         {/* 标题 */}
         <div className="mb-0">
-          {/* 操作按钮 */}
-          <div className="flex items-center gap-3">
-            {/* 数据管理下拉菜单 */}
-            <div className="relative" ref={dataMenuRef}>
-              <button
-                onClick={() => setShowDataMenu(!showDataMenu)}
-                className="px-5 py-2.5 bg-white border border-blue-200 text-blue-700 rounded-xl font-medium hover:bg-blue-50 transition-all flex items-center gap-2 shadow-sm"
-              >
-                数据管理
-                <svg className={`w-4 h-4 transition-transform duration-300 ${showDataMenu ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                </svg>
-              </button>
-              {showDataMenu && (
-                <div className="absolute top-full mt-2 left-0 bg-white border border-gray-200 rounded-xl shadow-lg py-2 min-w-[160px] z-50">
-                  <button
-                    onClick={handleExport}
-                    className="w-full px-4 py-2.5 text-left hover:bg-blue-50 flex items-center gap-3 transition-colors"
-                  >
-                    <svg className="w-4 h-4 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-                    </svg>
-                    导出数据
-                  </button>
-                  <button
-                    onClick={() => {
-                      setShowDataMenu(false);
-                      fileInputRef.current?.click();
-                    }}
-                    className="w-full px-4 py-2.5 text-left hover:bg-blue-50 flex items-center gap-3 transition-colors"
-                  >
-                    <svg className="w-4 h-4 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
-                    </svg>
-                    导入数据
-                  </button>
-                  <button
-                    onClick={() => {
-                      setShowDataMenu(false);
-                      setShowUrlImportModal(true);
-                    }}
-                    className="w-full px-4 py-2.5 text-left hover:bg-blue-50 flex items-center gap-3 transition-colors"
-                  >
-                    <svg className="w-4 h-4 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
-                    </svg>
-                    从 URL 导入
-                  </button>
-                  <button
-                    onClick={() => {
-                      setShowDataMenu(false);
-                      setShowCloudSyncModal(true);
-                    }}
-                    className="w-full px-4 py-2.5 text-left hover:bg-blue-50 flex items-center gap-3 transition-colors"
-                  >
-                    <svg className="w-4 h-4 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 15a4 4 0 004 4h9a5 5 0 10-.1-9.999 5.002 5.002 0 10-9.78 2.096A4.001 4.001 0 003 15z" />
-                    </svg>
-                    云同步
-                  </button>
-                  <button
-                    onClick={() => {
-                      setConfirmDialog({
-                        open: true,
-                        title: '清空数据',
-                        message: '确定要清空所有数据吗？此操作不可恢复。',
-                        variant: 'danger',
-                        onConfirm: () => {
-                          setGroups([]);
-                          saveData([]);
-                          setSelectedGroupId(null);
-                          setSelectedFormulaId(null);
-                          setConfirmDialog(prev => ({ ...prev, open: false }));
-                        },
-                      });
-                      setShowDataMenu(false);
-                    }}
-                    className="w-full px-4 py-2.5 text-left hover:bg-blue-50 flex items-center gap-3 transition-colors text-red-600"
-                  >
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                    </svg>
-                    清空数据
-                  </button>
-                </div>
-              )}
-            </div>
-
-            {/* 云端同步按钮 - 配置后显示下拉菜单 */}
-            <CloudSyncButton 
-              groups={groups}
-              setGroups={setGroups}
-              setSelectedGroupId={setSelectedGroupId}
-              setSelectedFormulaId={setSelectedFormulaId}
-              setShowCloudSyncModal={setShowCloudSyncModal}
-            />
-
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept=".json"
-              onChange={handleImport}
-              className="hidden"
-            />
-          </div>
-
-          {importError && (
-            <div className="fixed top-4 left-1/2 -translate-x-1/2 z-[200] bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-xl shadow-lg">
-              <p className="font-medium text-sm">导入失败</p>
-              <p className="text-sm mt-1">{importError}</p>
-            </div>
-          )}
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept=".json"
+            onChange={handleImport}
+            className="hidden"
+          />
         </div>
+
+        {importError && (
+          <div className="fixed top-4 left-1/2 -translate-x-1/2 z-[200] bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-xl shadow-lg">
+            <p className="font-medium text-sm">导入失败</p>
+            <p className="text-sm mt-1">{importError}</p>
+          </div>
+        )}
 
         <div className="flex gap-2.5" style={{ marginTop: '10px' }}>
           {/* 表格视图 - 全屏显示 */}
           <div className="flex-1">
             <div className="bg-white shadow-sm border border-gray-200 overflow-hidden" style={{ height: 'calc(100vh - 80px)' }}>
-              <SheetTabs
-                groups={groups}
-                activeGroupId={selectedGroupId}
-                onSwitchSheet={setSelectedGroupId}
-                onCreateSheet={() => handleCreateGroup('')}
-                onDeleteSheet={(groupId) => handleDeleteGroup(groupId)}
-                onRenameSheet={(groupId, newName) => handleEditGroup(groupId, newName)}
-                onReorderSheets={(newGroups) => {
-                  setGroups(newGroups);
-                  saveData(newGroups);
-                }}
-              />
+              {/* Sheet Tabs 和操作按钮 */}
+              <div className="flex items-center gap-3 border-b border-gray-200 bg-gray-50 px-3 py-2">
+                {/* 统一菜单按钮 */}
+                <UnifiedMenuButton
+                  groups={groups}
+                  setGroups={setGroups}
+                  setSelectedGroupId={setSelectedGroupId}
+                  setSelectedFormulaId={setSelectedFormulaId}
+                  onExport={handleExport}
+                  onImport={() => fileInputRef.current?.click()}
+                  onUrlImport={() => setShowUrlImportModal(true)}
+                  fileInputRef={fileInputRef}
+                />
+                
+                {/* Sheet Tabs */}
+                <SheetTabs
+                  groups={groups}
+                  activeGroupId={selectedGroupId}
+                  onSwitchSheet={setSelectedGroupId}
+                  onCreateSheet={() => handleCreateGroup('')}
+                  onDeleteSheet={(groupId) => handleDeleteGroup(groupId)}
+                  onRenameSheet={(groupId, newName) => handleEditGroup(groupId, newName)}
+                  onReorderSheets={(newGroups) => {
+                    setGroups(newGroups);
+                    saveData(newGroups);
+                  }}
+                />
+              </div>
               <FormulaSpreadsheet
                 groups={groups}
                 activeGroupId={selectedGroupId}
                 onRowClick={handleSpreadsheetRowClick}
                 onUpdateFormula={handleUpdateFormulaInSpreadsheet}
+                onUpdateFormulas={handleUpdateFormulasInSpreadsheet}
                 onAddFormula={() => {
                   if (selectedGroupId) {
                     handleAddFormulaToGroup(selectedGroupId);
@@ -1557,26 +1528,7 @@ function HomeContent() {
         onConfirm={confirmDialog.onConfirm}
         onCancel={confirmDialog.onCancel || (() => setConfirmDialog(prev => ({ ...prev, open: false })))}
       />
-
-      {/* 云同步弹窗 */}
-      <CloudSyncModal
-        isOpen={showCloudSyncModal}
-        onClose={() => setShowCloudSyncModal(false)}
-        groups={groups}
-        onLoadData={(loadedGroups) => {
-          setGroups(loadedGroups);
-          saveData(loadedGroups);
-          
-          // 选中第一个分组
-          if (loadedGroups.length > 0) {
-            setSelectedGroupId(loadedGroups[0].id);
-          } else {
-            setSelectedGroupId(null);
-          }
-          
-          setSelectedFormulaId(null);
-        }}
-      />
+      </div>
     </div>
   );
 }

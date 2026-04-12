@@ -33,9 +33,12 @@ interface FormulaSpreadsheetProps {
   activeGroupId: string | null;
   onRowClick: (formula: Formula) => void;
   onUpdateFormula: (formulaId: string, updates: Partial<Formula>) => void;
+  // 批量更新接口
+  onUpdateFormulas?: (formulaIds: string[], updates: Partial<Formula>) => void;
   onAddFormula: () => void;
   onDeleteFormula: (formulaId: string) => void;
   onOpenSortModal: () => void;
+  isPreviewMode?: boolean;
   columnHeaders?: {
     level1?: string;
     level2?: string;
@@ -52,9 +55,11 @@ export function FormulaSpreadsheet({
   activeGroupId,
   onRowClick,
   onUpdateFormula,
+  onUpdateFormulas,
   onAddFormula,
   onDeleteFormula,
   onOpenSortModal,
+  isPreviewMode = false,
   columnHeaders,
 }: FormulaSpreadsheetProps) {
   // 从本地存储读取缩放值
@@ -78,6 +83,35 @@ export function FormulaSpreadsheet({
   const [resizingColumn, setResizingColumn] = useState<string | null>(null);
   const [resizeStartX, setResizeStartX] = useState(0);
   const [resizeStartWidth, setResizeStartWidth] = useState(0);
+
+  // 固定列状态
+  const [pinnedColumns, setPinnedColumns] = useState<Set<string>>(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('formula-spreadsheet-pinned-columns');
+      return saved ? new Set(JSON.parse(saved)) : new Set();
+    }
+    return new Set();
+  });
+
+  // 保存固定列状态到本地存储
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('formula-spreadsheet-pinned-columns', JSON.stringify(Array.from(pinnedColumns)));
+    }
+  }, [pinnedColumns]);
+
+  // 切换列固定状态
+  const togglePinColumn = (columnId: string) => {
+    setPinnedColumns(prev => {
+      const newPinned = new Set(prev);
+      if (newPinned.has(columnId)) {
+        newPinned.delete(columnId);
+      } else {
+        newPinned.add(columnId);
+      }
+      return newPinned;
+    });
+  };
 
   const lastTouchDistance = React.useRef<number | null>(null);
   const [editingCell, setEditingCell] = useState<{ rowId: string; field: string } | null>(null);
@@ -165,7 +199,7 @@ export function FormulaSpreadsheet({
       {
         header: columnHeaders?.level1 || '分组1',
         accessorKey: 'level1Group',
-        size: 180,
+        size: 100,
         meta: {
           rowSpanField: 'level1Group',
         },
@@ -173,7 +207,7 @@ export function FormulaSpreadsheet({
       {
         header: columnHeaders?.level2 || '分组2',
         accessorKey: 'level2Group',
-        size: 180,
+        size: 100,
         meta: {
           rowSpanField: 'level2Group',
         },
@@ -181,7 +215,7 @@ export function FormulaSpreadsheet({
       {
         header: columnHeaders?.level3 || '分组3',
         accessorKey: 'level3Group',
-        size: 200,
+        size: 100,
         meta: {
           rowSpanField: 'level3Group',
         },
@@ -189,7 +223,7 @@ export function FormulaSpreadsheet({
       {
         header: columnHeaders?.level4 || '分组4',
         accessorKey: 'level4Group',
-        size: 250,
+        size: 100,
         meta: {
           rowSpanField: 'level4Group',
         },
@@ -214,28 +248,100 @@ export function FormulaSpreadsheet({
         header: '英文公式',
         accessorKey: 'englishFormula',
         size: 400,
-        cell: ({ getValue }) => (
-          <div className="px-3 py-2.5 whitespace-normal break-words font-mono text-sm">
-            {getValue() as string}
-          </div>
-        ),
+        cell: ({ row, getValue }) => {
+          // 使用 row.original.formulaId 而不是 row.id
+          const isEditing = editingCell?.rowId === row.original.formulaId && editingCell?.field === 'englishFormula';
+          const value = getValue() as string;
+          
+          if (isEditing && !isPreviewMode) {
+            return (
+              <div className="px-2 py-1.5">
+                <input
+                  ref={inputRef}
+                  type="text"
+                  value={editingValue}
+                  onChange={(e) => setEditingValue(e.target.value)}
+                  onBlur={(e) => {
+                    // 检查相关目标是否在编辑区域内，避免点击其他按钮时触发保存
+                    const relatedTarget = e.relatedTarget as Node | null;
+                    if (relatedTarget && e.currentTarget.contains(relatedTarget)) {
+                      return;
+                    }
+                    // 直接从 DOM 获取最新值，避免闭包问题
+                    const currentValue = (e.target as HTMLInputElement).value;
+                    handleSaveEdit(currentValue);
+                  }}
+                  onKeyDown={handleEditKeyDown}
+                  className="w-full px-2 py-1 text-sm font-mono border border-blue-500 rounded focus:outline-none focus:ring-2 focus:ring-blue-300"
+                  style={{ background: '#fffbeb' }}
+                />
+              </div>
+            );
+          }
+          
+          return (
+            <div 
+              className="px-3 py-2.5 whitespace-normal break-words font-mono text-sm cursor-pointer hover:bg-blue-50 transition-colors"
+              onDoubleClick={() => !isPreviewMode && handleStartEdit(row.original.formulaId, 'englishFormula', value)}
+              title="双击编辑"
+            >
+              {value}
+            </div>
+          );
+        },
       },
       {
         header: '中文公式',
         accessorKey: 'chineseFormula',
         size: 500,
-        cell: ({ getValue }) => (
-          <div className="px-3 py-2.5 whitespace-normal break-words">
-            {getValue() as string}
-          </div>
-        ),
+        cell: ({ row, getValue }) => {
+          // 使用 row.original.formulaId 而不是 row.id
+          const isEditing = editingCell?.rowId === row.original.formulaId && editingCell?.field === 'chineseFormula';
+          const value = getValue() as string;
+          
+          if (isEditing && !isPreviewMode) {
+            return (
+              <div className="px-2 py-1.5">
+                <input
+                  ref={inputRef}
+                  type="text"
+                  value={editingValue}
+                  onChange={(e) => setEditingValue(e.target.value)}
+                  onBlur={(e) => {
+                    // 检查相关目标是否在编辑区域内，避免点击其他按钮时触发保存
+                    const relatedTarget = e.relatedTarget as Node | null;
+                    if (relatedTarget && e.currentTarget.contains(relatedTarget)) {
+                      return;
+                    }
+                    // 直接从 DOM 获取最新值，避免闭包问题
+                    const currentValue = (e.target as HTMLInputElement).value;
+                    handleSaveEdit(currentValue);
+                  }}
+                  onKeyDown={handleEditKeyDown}
+                  className="w-full px-2 py-1 text-sm border border-blue-500 rounded focus:outline-none focus:ring-2 focus:ring-blue-300"
+                  style={{ background: '#fffbeb' }}
+                />
+              </div>
+            );
+          }
+          
+          return (
+            <div 
+              className="px-3 py-2.5 whitespace-normal break-words cursor-pointer hover:bg-purple-50 transition-colors"
+              onDoubleClick={() => !isPreviewMode && handleStartEdit(row.original.formulaId, 'chineseFormula', value)}
+              title="双击编辑"
+            >
+              {value}
+            </div>
+          );
+        },
       },
       {
         header: '说明',
         accessorKey: 'description',
         size: 350,
         cell: ({ getValue }) => (
-          <div className="px-3 py-2.5 whitespace-normal break-words">
+          <div className="px-3 py-2.5 whitespace-normal break-words" style={{ minWidth: '200px' }}>
             {getValue() as string}
           </div>
         ),
@@ -363,35 +469,79 @@ export function FormulaSpreadsheet({
     setTimeout(() => inputRef.current?.focus(), 0);
   };
   
-  // 保存编辑
-  const handleSaveEdit = () => {
+  // 保存编辑 - 使用参数而不是闭包状态
+  const handleSaveEdit = useCallback((forceValue?: string) => {
     if (!editingCell) return;
       
-    const row = rowData.find(r => r.id === editingCell.rowId);
-    if (!row) return;
-  
+    // 使用传入的值或当前状态值
+    const valueToSave = forceValue !== undefined ? forceValue : editingValue;
+    
     // 更新公式
     const updates: Partial<Formula> = {};
     if (editingCell.field === 'formulaName') {
-      updates.name = editingValue;
+      updates.name = valueToSave;
     } else if (editingCell.field === 'englishFormula') {
-      updates.englishFormula = editingValue;
+      updates.englishFormula = valueToSave;
     } else if (editingCell.field === 'chineseFormula') {
-      updates.chineseFormula = editingValue;
+      updates.chineseFormula = valueToSave;
     } else if (editingCell.field === 'description') {
-      updates.description = editingValue;
+      updates.description = valueToSave;
     } else if (editingCell.field.startsWith('level')) {
       // 分组字段保存为公式的扩展属性
-      (updates as any)[editingCell.field] = editingValue;
+      (updates as any)[editingCell.field] = valueToSave;
     }
   
     if (Object.keys(updates).length > 0) {
-      onUpdateFormula(row.formulaId, updates);
+      // 如果是分组字段，需要批量更新所有被合并的行
+      if (editingCell.field.startsWith('level')) {
+        const field = editingCell.field as keyof SpreadsheetRow;
+        const currentRowIndex = rowData.findIndex(r => r.formulaId === editingCell.rowId);
+        
+        if (currentRowIndex >= 0) {
+          // 找到这个单元格合并的所有行
+          const currentValue = rowData[currentRowIndex][field] as string;
+          const rowsToUpdate: string[] = [];
+          
+          // 向前查找
+          let startIndex = currentRowIndex;
+          for (let i = currentRowIndex; i >= 0; i--) {
+            const val = rowData[i][field] as string;
+            if (val === currentValue) {
+              startIndex = i;
+            } else {
+              break;
+            }
+          }
+          
+          // 向后查找
+          for (let i = startIndex; i < rowData.length; i++) {
+            const val = rowData[i][field] as string;
+            if (val === currentValue) {
+              rowsToUpdate.push(rowData[i].formulaId);
+            } else {
+              break;
+            }
+          }
+          
+          // 批量更新所有被合并的行
+          if (onUpdateFormulas && rowsToUpdate.length > 1) {
+            onUpdateFormulas(rowsToUpdate, updates);
+          } else {
+            rowsToUpdate.forEach(formulaId => {
+              onUpdateFormula(formulaId, updates);
+            });
+          }
+        } else {
+          onUpdateFormula(editingCell.rowId, updates);
+        }
+      } else {
+        onUpdateFormula(editingCell.rowId, updates);
+      }
     }
   
     setEditingCell(null);
     setEditingValue('');
-  };
+  }, [editingCell, editingValue, rowData, onUpdateFormula]);
   
   // 取消编辑
   const handleCancelEdit = () => {
@@ -541,26 +691,30 @@ export function FormulaSpreadsheet({
       <div className="flex items-center gap-2 p-3 border-b border-gray-200 bg-gray-50 flex-shrink-0">
         <div className="flex items-center gap-3">
           {/* 新增公式按钮 */}
-          <button
-            onClick={onAddFormula}
-            className="px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg font-medium transition-colors flex items-center gap-2 shadow-sm"
-          >
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-            </svg>
-            新增公式
-          </button>
+          {!isPreviewMode && (
+            <button
+              onClick={onAddFormula}
+              className="px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg font-medium transition-colors flex items-center gap-2 shadow-sm"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+              </svg>
+              新增公式
+            </button>
+          )}
 
           {/* 排序按钮 */}
-          <button
-            onClick={onOpenSortModal}
-            className="px-4 py-2 bg-white border border-gray-300 hover:bg-gray-50 text-gray-700 rounded-lg font-medium transition-colors flex items-center gap-2"
-          >
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4h13M3 8h9m-9 4h6m4 0l4-4m0 0l4 4m-4-4v12" />
-            </svg>
-            排序
-          </button>
+          {!isPreviewMode && (
+            <button
+              onClick={onOpenSortModal}
+              className="px-4 py-2 bg-white border border-gray-300 hover:bg-gray-50 text-gray-700 rounded-lg font-medium transition-colors flex items-center gap-2"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4h13M3 8h9m-9 4h6m4 0l4-4m0 0l4 4m-4-4v12" />
+              </svg>
+              排序
+            </button>
+          )}
 
           {/* 缩放进度条 */}
           <div className="flex items-center gap-2">
@@ -618,34 +772,85 @@ export function FormulaSpreadsheet({
         onTouchMove={handleTouchMove}
         onTouchEnd={handleTouchEnd}
       >
-        <div style={{ zoom: `${zoom}%`, minWidth: 'fit-content' }}>
+        <div style={{ zoom: `${zoom}%` }}>
           <table className="border-collapse" style={{ tableLayout: 'auto' }}>
-            <thead style={{ position: 'sticky', top: 0, zIndex: 30 }}>
+            <thead style={{ position: 'sticky', top: 0, zIndex: 50 }}>
               {table.getHeaderGroups().map(headerGroup => (
                 <tr key={headerGroup.id}>
-                  {headerGroup.headers.map(header => {
+                  {headerGroup.headers.map((header, headerIndex) => {
                     const isSticky = (header.column.columnDef as any).meta?.sticky;
+                    const isPinned = pinnedColumns.has(header.column.id);
                     const columnSize = columnSizes[header.column.id] || header.getSize();
+                    
+                    // 计算固定列的 left 位置
+                    let pinnedLeft: number | undefined = undefined;
+                    if (isPinned) {
+                      pinnedLeft = 0;
+                      // 累加前面所有固定列的宽度
+                      for (let i = 0; i < headerIndex; i++) {
+                        const prevHeader = headerGroup.headers[i];
+                        if (pinnedColumns.has(prevHeader.id)) {
+                          const prevSize = columnSizes[prevHeader.id] || prevHeader.getSize();
+                          pinnedLeft += prevSize;
+                        }
+                      }
+                    }
                     
                     return (
                       <th
                         key={header.id}
-                        className={`px-3 py-2 text-left text-sm font-semibold text-gray-700 border-b border-gray-300 select-none relative ${
-                          isSticky === 'right' ? 'bg-gray-100' : 'bg-gray-100'
-                        }`}
+                        className={`px-3 py-2 text-left text-sm font-semibold text-gray-700 border-b border-gray-300 select-none relative`}
                         style={{ 
-                          width: `${columnSize}px`,
-                          minWidth: `${columnSize}px`,
-                          maxWidth: `${columnSize}px`,
-                          position: isSticky === 'right' ? 'sticky' : undefined,
+                          width: (() => {
+                            if (header.column.id === 'level1Group' || header.column.id === 'level2Group' || 
+                                header.column.id === 'level3Group' || header.column.id === 'level4Group') return '100px';
+                            return undefined;
+                          })(),
+                          minWidth: (() => {
+                            if (isSticky === 'right') return `${columnSize}px`;
+                            if (header.column.id === 'englishFormula' || header.column.id === 'chineseFormula') return `${300 / (zoom / 100)}px`;
+                            if (header.column.id === 'level1Group' || header.column.id === 'level2Group' || 
+                                header.column.id === 'level3Group' || header.column.id === 'level4Group') return '100px';
+                            return `${200 / (zoom / 100)}px`;
+                          })(),
+                          maxWidth: (() => {
+                            if (header.column.id === 'level1Group' || header.column.id === 'level2Group' || 
+                                header.column.id === 'level3Group' || header.column.id === 'level4Group') return '100px';
+                            return undefined;
+                          })(),
+                          position: isSticky === 'right' || isPinned ? 'sticky' : undefined,
+                          left: isPinned ? `${pinnedLeft}px` : undefined,
                           right: isSticky === 'right' ? 0 : undefined,
                           top: 0,
-                          zIndex: isSticky === 'right' ? 40 : 30,
+                          zIndex: isPinned ? 60 : (isSticky === 'right' ? 58 : 55),
                           overflowWrap: 'break-word',
                           wordBreak: 'break-word',
+                          backgroundColor: isPinned || isSticky === 'right' ? '#f3f4f6' : '#f3f4f6',
                         }}
                       >
-                        {flexRender(header.column.columnDef.header, header.getContext())}
+                        <div className="flex items-center gap-1">
+                          <span className="flex-1">{flexRender(header.column.columnDef.header, header.getContext())}</span>
+                          
+                          {/* 固定/取消固定按钮 */}
+                          {header.column.id !== 'id' && (
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                togglePinColumn(header.column.id);
+                              }}
+                              className={`p-1 rounded transition-colors flex-shrink-0 ${
+                                isPinned 
+                                  ? 'text-blue-600 hover:bg-blue-100' 
+                                  : 'text-gray-400 hover:bg-gray-200 hover:text-gray-600'
+                              }`}
+                              title={isPinned ? '取消固定列' : '固定列'}
+                            >
+                              <svg className="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 24 24">
+                                <path d="M16 12V4h1V2H7v2h1v8l-2 2v2h5.2v6h1.6v-6H18v-2l-2-2z"/>
+                              </svg>
+                            </button>
+                          )}
+                        </div>
                         
                         {/* 拖拽手柄 */}
                         {!isSticky && (
@@ -664,10 +869,25 @@ export function FormulaSpreadsheet({
             <tbody>
               {table.getRowModel().rows.map((row, rowIndex) => (
                 <tr key={row.id} className="group hover:bg-blue-50 transition-colors">
-                  {row.getVisibleCells().map(cell => {
+                  {row.getVisibleCells().map((cell, cellIndex) => {
                     const rowSpanField = (cell.column.columnDef as any).meta?.rowSpanField;
                     const isSticky = (cell.column.columnDef as any).meta?.sticky;
+                    const isPinned = pinnedColumns.has(cell.column.id);
                     const columnSize = columnSizes[cell.column.id] || cell.column.getSize();
+                    
+                    // 计算固定列的 left 位置
+                    let pinnedLeft: number | undefined = undefined;
+                    if (isPinned) {
+                      pinnedLeft = 0;
+                      // 累加前面所有固定列的宽度
+                      for (let i = 0; i < cellIndex; i++) {
+                        const prevCell = row.getVisibleCells()[i];
+                        if (pinnedColumns.has(prevCell.column.id)) {
+                          const prevSize = columnSizes[prevCell.column.id] || prevCell.column.getSize();
+                          pinnedLeft += prevSize;
+                        }
+                      }
+                    }
                     
                     // 如果是分组列，处理 rowSpan
                     if (rowSpanField) {
@@ -682,27 +902,46 @@ export function FormulaSpreadsheet({
                       const value = cell.getValue() as string;
                       const isLevel1or2 = rowSpanField === 'level1Group' || rowSpanField === 'level2Group';
                       const isLevel3or4 = rowSpanField === 'level3Group' || rowSpanField === 'level4Group';
-                      const isEditing = editingCell?.rowId === row.id && editingCell?.field === rowSpanField;
+                      const isEditing = editingCell?.rowId === row.original.formulaId && editingCell?.field === rowSpanField;
                       
                       return (
                         <td
                           key={cell.id}
                           rowSpan={rowSpan > 1 ? rowSpan : 1}
                           className={`text-sm font-bold align-middle text-center cursor-cell ${
-                            isLevel1or2 ? 'bg-sky-100' : isLevel3or4 ? 'bg-sky-50' : 'bg-gray-50'
+                            isLevel1or2 ? 'bg-sky-100' : isLevel3or4 ? 'bg-sky-50' : isPinned ? 'bg-gray-50' : 'bg-gray-50'
                           }`}
                           style={{ 
-                            width: `${columnSize}px`,
-                            minWidth: `${columnSize}px`,
-                            maxWidth: `${columnSize}px`,
+                            width: (() => {
+                              if (cell.column.id === 'level1Group' || cell.column.id === 'level2Group' || 
+                                  cell.column.id === 'level3Group' || cell.column.id === 'level4Group') return '100px';
+                              return undefined;
+                            })(),
+                            minWidth: (() => {
+                              if (isSticky === 'right') return `${columnSize}px`;
+                              if (cell.column.id === 'englishFormula' || cell.column.id === 'chineseFormula') return `${300 / (zoom / 100)}px`;
+                              if (cell.column.id === 'level1Group' || cell.column.id === 'level2Group' || 
+                                  cell.column.id === 'level3Group' || cell.column.id === 'level4Group') return '100px';
+                              return `${200 / (zoom / 100)}px`;
+                            })(),
+                            maxWidth: (() => {
+                              if (cell.column.id === 'level1Group' || cell.column.id === 'level2Group' || 
+                                  cell.column.id === 'level3Group' || cell.column.id === 'level4Group') return '100px';
+                              return undefined;
+                            })(),
                             height: rowSpan > 1 ? `${rowSpan * 48}px` : '48px',
-                            position: isSticky === 'right' ? 'sticky' : undefined,
+                            position: isSticky === 'right' || isPinned ? 'sticky' : undefined,
+                            left: isPinned ? `${pinnedLeft}px` : undefined,
                             right: isSticky === 'right' ? 0 : undefined,
-                            zIndex: isSticky === 'right' ? 10 : undefined,
+                            zIndex: (() => {
+                              if (isPinned) return 15; // 左侧固定列
+                              if (isSticky === 'right') return 13; // 右侧固定列
+                              return 5; // 普通数据单元格
+                            })(),
                             overflowWrap: 'break-word',
                             wordBreak: 'break-word',
                           }}
-                          onDoubleClick={() => handleStartEdit(row.id, rowSpanField as string, value)}
+                          onDoubleClick={() => handleStartEdit(row.original.formulaId, rowSpanField as string, value)}
                         >
                           {isEditing ? (
                             <input
@@ -710,7 +949,15 @@ export function FormulaSpreadsheet({
                               type="text"
                               value={editingValue}
                               onChange={(e) => setEditingValue(e.target.value)}
-                              onBlur={handleSaveEdit}
+                              onBlur={(e) => {
+                                const relatedTarget = e.relatedTarget as Node | null;
+                                if (relatedTarget && e.currentTarget.contains(relatedTarget)) {
+                                  return;
+                                }
+                                // 直接从 DOM 获取最新值，避免闭包问题
+                                const currentValue = (e.target as HTMLInputElement).value;
+                                handleSaveEdit(currentValue);
+                              }}
                               onKeyDown={handleEditKeyDown}
                               className="w-full px-2 py-1 text-sm font-bold text-center border-2 border-blue-500 rounded outline-none bg-white"
                               style={{ height: '32px' }}
@@ -724,25 +971,44 @@ export function FormulaSpreadsheet({
                     
                     // 普通列
                     const cellValue = cell.getValue() as string;
-                    const isEditing = editingCell?.rowId === row.id && editingCell?.field === cell.column.id;
+                    const isEditing = editingCell?.rowId === row.original.formulaId && editingCell?.field === cell.column.id;
                     
                     return (
                       <td
                         key={cell.id}
                         className={`text-sm text-gray-700 cursor-cell ${
-                          isSticky === 'right' ? 'bg-white group-hover:bg-blue-50' : ''
+                          isSticky === 'right' || isPinned ? 'bg-white group-hover:bg-blue-50' : ''
                         }`}
                         style={{ 
-                          width: `${columnSize}px`,
-                          minWidth: `${columnSize}px`,
-                          maxWidth: `${columnSize}px`,
-                          position: isSticky === 'right' ? 'sticky' : undefined,
+                          width: (() => {
+                            if (cell.column.id === 'level1Group' || cell.column.id === 'level2Group' || 
+                                cell.column.id === 'level3Group' || cell.column.id === 'level4Group') return '100px';
+                            return undefined;
+                          })(),
+                          minWidth: (() => {
+                            if (isSticky === 'right') return `${columnSize}px`;
+                            if (cell.column.id === 'englishFormula' || cell.column.id === 'chineseFormula') return `${300 / (zoom / 100)}px`;
+                            if (cell.column.id === 'level1Group' || cell.column.id === 'level2Group' || 
+                                cell.column.id === 'level3Group' || cell.column.id === 'level4Group') return '100px';
+                            return `${200 / (zoom / 100)}px`;
+                          })(),
+                          maxWidth: (() => {
+                            if (cell.column.id === 'level1Group' || cell.column.id === 'level2Group' || 
+                                cell.column.id === 'level3Group' || cell.column.id === 'level4Group') return '100px';
+                            return undefined;
+                          })(),
+                          position: isSticky === 'right' || isPinned ? 'sticky' : undefined,
+                          left: isPinned ? `${pinnedLeft}px` : undefined,
                           right: isSticky === 'right' ? 0 : undefined,
-                          zIndex: isSticky === 'right' ? 10 : undefined,
+                          zIndex: (() => {
+                            if (isPinned) return 15; // 左侧固定列
+                            if (isSticky === 'right') return 13; // 右侧固定列
+                            return 5; // 普通数据单元格
+                          })(),
                           overflowWrap: 'break-word',
                           wordBreak: 'break-word',
                         }}
-                        onDoubleClick={() => handleStartEdit(row.id, cell.column.id, cellValue)}
+                        onDoubleClick={() => handleStartEdit(row.original.formulaId, cell.column.id, cellValue)}
                       >
                         {isEditing ? (
                           <input
@@ -750,7 +1016,15 @@ export function FormulaSpreadsheet({
                             type="text"
                             value={editingValue}
                             onChange={(e) => setEditingValue(e.target.value)}
-                            onBlur={handleSaveEdit}
+                            onBlur={(e) => {
+                              const relatedTarget = e.relatedTarget as Node | null;
+                              if (relatedTarget && e.currentTarget.contains(relatedTarget)) {
+                                return;
+                              }
+                              // 直接从 DOM 获取最新值，避免闭包问题
+                              const currentValue = (e.target as HTMLInputElement).value;
+                              handleSaveEdit(currentValue);
+                            }}
                             onKeyDown={handleEditKeyDown}
                             className="w-full px-2 py-1 text-sm border-2 border-blue-500 rounded outline-none bg-white"
                           />

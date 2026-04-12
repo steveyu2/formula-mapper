@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Fragment } from 'react';
 import { VersionHistoryItem } from '@/lib/cloud/types';
 import { FormulaGroup } from '@/lib/types';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
 import { zhCN } from 'date-fns/locale';
+import { VersionPreviewWindow } from './VersionPreviewWindow';
 
 interface VersionHistoryModalProps {
   isOpen: boolean;
@@ -24,6 +25,7 @@ export function VersionHistoryModal({ isOpen, onClose, config, onLoadVersion }: 
   const [versions, setVersions] = useState<VersionHistoryItem[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [isLoadingVersion, setIsLoadingVersion] = useState<string | null>(null);
+  const [previewData, setPreviewData] = useState<{ versionId: string; savedAt: string; groups: FormulaGroup[] } | null>(null);
 
   useEffect(() => {
     if (isOpen && config) {
@@ -85,6 +87,35 @@ export function VersionHistoryModal({ isOpen, onClose, config, onLoadVersion }: 
     }
   };
 
+  const handlePreviewVersion = async (versionId: string) => {
+    if (!config) return;
+    
+    setIsLoadingVersion(versionId);
+    try {
+      const { CloudflareStorageProvider, StorageProviderType } = await import('@/lib/cloud');
+      const provider = new CloudflareStorageProvider({
+        type: StorageProviderType.CLOUDFLARE,
+        endpoint: config.endpoint,
+        apiKey: config.apiKey,
+        namespaceId: config.namespaceId,
+      });
+
+      const result = await provider.loadVersion('formula-data', versionId);
+      if (result.success && result.data) {
+        // 从版本列表中找到对应的 savedAt
+        const versionInfo = versions.find(v => v.versionId === versionId);
+        const savedAt = versionInfo?.savedAt || new Date().toISOString();
+        setPreviewData({ versionId, savedAt, groups: result.data.groups });
+      } else {
+        toast.error(result.error || '预览版本失败');
+      }
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : '预览版本失败');
+    } finally {
+      setIsLoadingVersion(null);
+    }
+  };
+
   const formatDate = (dateString: string) => {
     try {
       return format(new Date(dateString), 'yyyy年MM月dd日 HH:mm:ss', { locale: zhCN });
@@ -94,6 +125,7 @@ export function VersionHistoryModal({ isOpen, onClose, config, onLoadVersion }: 
   };
 
   return (
+    <Fragment>
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
         <DialogHeader>
@@ -153,29 +185,43 @@ export function VersionHistoryModal({ isOpen, onClose, config, onLoadVersion }: 
                   )}
                 </div>
 
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => handleLoadVersion(version.versionId)}
-                  disabled={isLoadingVersion === version.versionId}
-                >
-                  {isLoadingVersion === version.versionId ? (
-                    <>
-                      <svg className="animate-spin -ml-1 mr-2 h-4 w-4" fill="none" viewBox="0 0 24 24">
-                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-                      </svg>
-                      加载中...
-                    </>
-                  ) : (
-                    <>
-                      <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
-                      </svg>
-                      恢复此版本
-                    </>
-                  )}
-                </Button>
+                <div className="flex gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => handlePreviewVersion(version.versionId)}
+                    disabled={isLoadingVersion === version.versionId}
+                  >
+                    <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                    </svg>
+                    预览
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => handleLoadVersion(version.versionId)}
+                    disabled={isLoadingVersion === version.versionId}
+                  >
+                    {isLoadingVersion === version.versionId ? (
+                      <>
+                        <svg className="animate-spin -ml-1 mr-2 h-4 w-4" fill="none" viewBox="0 0 24 24">
+                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                        </svg>
+                        加载中...
+                      </>
+                    ) : (
+                      <>
+                        <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+                        </svg>
+                        恢复
+                      </>
+                    )}
+                  </Button>
+                </div>
               </div>
             ))}
           </div>
@@ -191,5 +237,17 @@ export function VersionHistoryModal({ isOpen, onClose, config, onLoadVersion }: 
         </div>
       </DialogContent>
     </Dialog>
+    
+    {/* 版本预览窗口 */}
+    {previewData && (
+      <VersionPreviewWindow
+        versionId={previewData.versionId}
+        savedAt={previewData.savedAt}
+        groups={previewData.groups}
+        config={config!}
+        onClose={() => setPreviewData(null)}
+      />
+    )}
+    </Fragment>
   );
 }

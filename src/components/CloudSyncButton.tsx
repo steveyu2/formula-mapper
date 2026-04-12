@@ -203,7 +203,7 @@ export function CloudSyncButton({
           </svg>
         </button>
 
-        <div className="absolute top-full mt-2 right-0 bg-white border border-gray-200 rounded-xl shadow-lg py-2 min-w-[160px] z-50 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all">
+        <div className="absolute top-full mt-2 right-0 bg-white border border-gray-200 rounded-xl shadow-lg py-2 min-w-[160px] z-[150] opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all">
           <button
             onClick={handleSaveWithPassword}
             disabled={isSaving}

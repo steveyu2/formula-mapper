@@ -87,8 +87,13 @@ function SortableTreeNode({
       {...listeners}
     >
       {/* 拖拽图标 */}
-      <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 8h16M4 16h16" />
+      <svg className="w-4 h-4 text-gray-400" fill="currentColor" viewBox="0 0 24 24">
+        <circle cx="9" cy="6" r="1.5"/>
+        <circle cx="15" cy="6" r="1.5"/>
+        <circle cx="9" cy="12" r="1.5"/>
+        <circle cx="15" cy="12" r="1.5"/>
+        <circle cx="9" cy="18" r="1.5"/>
+        <circle cx="15" cy="18" r="1.5"/>
       </svg>
 
       {/* 节点名称 */}
@@ -374,13 +379,9 @@ export function SortModal({ groups, activeGroupId, isOpen, onClose, onSave }: So
                   >
                     <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       {expandedNodes.has(node.id) ? (
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 19a2 2 0 01-2-2V7a2 2 0 012-2h4l2 2h4a2 2 0 012 2v1M5 19h14a2 2 0 002-2v-5a2 2 0 00-2-2H9a2 2 0 00-2 2v5a2 2 0 01-2 2z" />
                       ) : (
-                        <>
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16" />
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 12h16" />
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 18h16" />
-                        </>
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" />
                       )}
                     </svg>
                   </button>
