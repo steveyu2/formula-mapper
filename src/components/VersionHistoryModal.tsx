@@ -200,13 +200,13 @@ export function VersionHistoryModal({ isOpen, onClose, config, onLoadVersion }: 
               <Tooltip content="每次保存自动创建，最多保留100个。支持编辑备注，适合标记重要版本。">
                 <button
                   onClick={() => setActiveTab('fixed')}
-                  className={`flex-1 px-4 py-2 rounded-md text-sm font-medium transition-all border-b-2 ${
+                  className={`flex-1 px-4 py-2 rounded-md text-sm font-medium transition-all ${
                     activeTab === 'fixed'
-                      ? 'bg-white text-blue-600 shadow-sm border-blue-600'
-                      : 'text-gray-600 hover:text-gray-900 border-transparent hover:border-gray-400'
+                      ? 'bg-white text-blue-600 shadow-sm'
+                      : 'text-gray-600 hover:text-gray-900'
                   }`}
                 >
-                  📌 固定版本
+                  <span className="underline decoration-dotted">📌 固定版本</span>
                   <span className="ml-2 text-xs opacity-75">
                     ({versions.filter(v => v.versionType === 'fixed').length}/100)
                   </span>
@@ -215,13 +215,13 @@ export function VersionHistoryModal({ isOpen, onClose, config, onLoadVersion }: 
               <Tooltip content="同一天内保存会覆盖当天最新版本，最多保留100个不同日期。自动管理，无需手动操作。">
                 <button
                   onClick={() => setActiveTab('auto')}
-                  className={`flex-1 px-4 py-2 rounded-md text-sm font-medium transition-all border-b-2 ${
+                  className={`flex-1 px-4 py-2 rounded-md text-sm font-medium transition-all ${
                     activeTab === 'auto'
-                      ? 'bg-white text-blue-600 shadow-sm border-blue-600'
-                      : 'text-gray-600 hover:text-gray-900 border-transparent hover:border-gray-400'
+                      ? 'bg-white text-blue-600 shadow-sm'
+                      : 'text-gray-600 hover:text-gray-900'
                   }`}
                 >
-                  📅 自动版本
+                  <span className="underline decoration-dotted">📅 自动版本</span>
                   <span className="ml-2 text-xs opacity-75">
                     ({versions.filter(v => v.versionType === 'auto' || !v.versionType).length}/100)
                   </span>
