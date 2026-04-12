@@ -73,21 +73,19 @@ export default function FormulaEditorPage() {
       clearTimeout(parseTimerRef.current);
     }
     
-    // 防抖：300ms 后才解析
-    parseTimerRef.current = setTimeout(() => {
-      try {
-        const mappingResult = VariableMapper.createMapping(
-          f.englishFormula,
-          f.chineseFormula
-        );
-        setMapping(mappingResult.mapping);
-        const parsedAst = FormulaParser.parse(f.englishFormula);
-        setAst(parsedAst);
-        setError('');
-      } catch (err) {
-        setError(err instanceof Error ? err.message : '解析失败');
-      }
-    }, 300);
+    // 立即解析，不使用防抖
+    try {
+      const mappingResult = VariableMapper.createMapping(
+        f.englishFormula,
+        f.chineseFormula
+      );
+      setMapping(mappingResult.mapping);
+      const parsedAst = FormulaParser.parse(f.englishFormula);
+      setAst(parsedAst);
+      setError('');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : '解析失败');
+    }
   }, []);
 
   // 点击变量打开对应公式（纯预览模式）
@@ -339,15 +337,15 @@ export default function FormulaEditorPage() {
               <div className="space-y-4">
               {/* 公式信息卡片 */}
               <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                <h4 className="text-sm font-semibold text-blue-900 mb-2">{(formula as any).level4Group || formula.name || '未命名公式'}</h4>
+                <h4 className="text-sm font-semibold text-blue-900 mb-2">{(editFormula as any).level4Group || editFormula.name || '未命名公式'}</h4>
                 <div className="space-y-2 text-sm">
                   <div>
                     <span className="text-blue-700 font-medium">英文公式：</span>
-                    <span className="font-mono">{formula.englishFormula}</span>
+                    <span className="font-mono">{editFormula.englishFormula}</span>
                   </div>
                   <div>
                     <span className="text-blue-700 font-medium">中文公式：</span>
-                    <span>{formula.chineseFormula}</span>
+                    <span>{editFormula.chineseFormula}</span>
                   </div>
                 </div>
               </div>

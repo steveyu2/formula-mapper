@@ -148,7 +148,7 @@ async function handleSave(request: Request, env: Env): Promise<Response> {
     await createFixedVersion(key, `${versionId}-fixed`, savedAt, value, comment || '', env);
 
     // 3. 创建/覆盖日期版本
-    await createOrUpdateAutoVersion(key, `${versionId}-auto`, savedAt, value, env);
+    await createOrUpdateAutoVersion(key, `${versionId}-auto`, savedAt, value, comment || '', env);
 
     return jsonResponse({ 
       success: true, 
@@ -189,7 +189,7 @@ async function createFixedVersion(key: string, versionId: string, savedAt: strin
 /**
  * 创建或覆盖日期版本（复杂逻辑：同日期覆盖最新）
  */
-async function createOrUpdateAutoVersion(key: string, versionId: string, savedAt: string, data: string, env: Env): Promise<void> {
+async function createOrUpdateAutoVersion(key: string, versionId: string, savedAt: string, data: string, comment: string, env: Env): Promise<void> {
   // 1. 获取当前日期版本总数
   const countResult = await env.DB.prepare(`
     SELECT COUNT(*) as count FROM version_history 
@@ -213,15 +213,15 @@ async function createOrUpdateAutoVersion(key: string, versionId: string, savedAt
       // 3a. 有同日期版本，覆盖它
       await env.DB.prepare(`
         UPDATE version_history 
-        SET data = ?, saved_at = ?, version_id = ?
+        SET data = ?, saved_at = ?, version_id = ?, comment = ?
         WHERE id = ?
-      `).bind(data, savedAt, versionId, latestSameDay.id).run();
+      `).bind(data, savedAt, versionId, comment || '', latestSameDay.id).run();
     } else {
       // 3b. 没有同日期版本，创建新的并删除最旧的
       await env.DB.prepare(`
         INSERT INTO version_history (data_key, version_id, data, saved_at, comment, version_type)
-        VALUES (?, ?, ?, ?, '', 'auto')
-      `).bind(key, versionId, data, savedAt).run();
+        VALUES (?, ?, ?, ?, ?, 'auto')
+      `).bind(key, versionId, data, savedAt, comment).run();
       
       // 删除最旧的版本（保持总数 <= 100）
       await env.DB.prepare(`
@@ -240,8 +240,8 @@ async function createOrUpdateAutoVersion(key: string, versionId: string, savedAt
     // 4. 总数 < 100，直接创建
     await env.DB.prepare(`
       INSERT INTO version_history (data_key, version_id, data, saved_at, comment, version_type)
-      VALUES (?, ?, ?, ?, '', 'auto')
-    `).bind(key, versionId, data, savedAt).run();
+      VALUES (?, ?, ?, ?, ?, 'auto')
+    `).bind(key, versionId, data, savedAt, comment).run();
   }
 }
 

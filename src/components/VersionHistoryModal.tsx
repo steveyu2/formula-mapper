@@ -429,7 +429,7 @@ function VersionItem({
             ) : (
               <p className="text-sm text-gray-400 italic">无备注</p>
             )}
-            {showEditComment && version.versionType === 'fixed' && (
+            {showEditComment && (
               <button
                 onClick={() => setEditingComment({ versionId: version.versionId, comment: version.comment || '' })}
                 className="text-xs text-blue-500 hover:text-blue-700 flex-shrink-0"
