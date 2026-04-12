@@ -26,7 +26,7 @@ const corsHeaders = {
 };
 
 // 版本历史配置
-const MAX_VERSIONS = 100; // 最多保留100个版本
+const MAX_VERSIONS = 100; // 每种类型最多保留100个版本
 
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
@@ -110,7 +110,7 @@ function validateWritePassword(request: Request, env: Env): boolean {
 }
 
 /**
- * 保存数据到 D1，同时创建版本历史
+ * 保存数据到 D1，同时创建固定版本和日期版本
  */
 async function handleSave(request: Request, env: Env): Promise<Response> {
   if (request.method !== 'POST') {
@@ -138,20 +138,17 @@ async function handleSave(request: Request, env: Env): Promise<Response> {
     const savedAt = new Date().toISOString();
     const value = JSON.stringify(data);
 
-    // 存储当前数据
+    // 1. 存储当前数据
     await env.DB.prepare(`
       INSERT OR REPLACE INTO formula_data (id, data, saved_at, version_id, comment)
       VALUES (?, ?, ?, ?, ?)
     `).bind(key, value, savedAt, versionId, comment || '').run();
 
-    // 保存版本历史
-    await env.DB.prepare(`
-      INSERT INTO version_history (data_key, version_id, data, saved_at, comment)
-      VALUES (?, ?, ?, ?, ?)
-    `).bind(key, versionId, value, savedAt, comment || '').run();
+    // 2. 创建固定版本
+    await createFixedVersion(key, `${versionId}-fixed`, savedAt, value, comment || '', env);
 
-    // 清理旧版本
-    await cleanupOldVersions(key, env);
+    // 3. 创建/覆盖日期版本
+    await createOrUpdateAutoVersion(key, `${versionId}-auto`, savedAt, value, env);
 
     return jsonResponse({ 
       success: true, 
@@ -166,26 +163,85 @@ async function handleSave(request: Request, env: Env): Promise<Response> {
 }
 
 /**
- * 清理旧版本，只保留最新的 MAX_VERSIONS 个
+ * 创建固定版本（简单逻辑：超过100个删除最旧的）
  */
-async function cleanupOldVersions(key: string, env: Env): Promise<void> {
-  const result = await env.DB.prepare(`
-    SELECT COUNT(*) as count FROM version_history WHERE data_key = ?
-  `).bind(key).first<{ count: number }>();
-  
-  const count = result?.count || 0;
-  
-  if (count > MAX_VERSIONS) {
-    await env.DB.prepare(`
-      DELETE FROM version_history 
-      WHERE data_key = ? 
+async function createFixedVersion(key: string, versionId: string, savedAt: string, data: string, comment: string, env: Env): Promise<void> {
+  // 插入新固定版本
+  await env.DB.prepare(`
+    INSERT INTO version_history (data_key, version_id, data, saved_at, comment, version_type)
+    VALUES (?, ?, ?, ?, ?, 'fixed')
+  `).bind(key, versionId, data, savedAt, comment).run();
+
+  // 清理超过100个的旧固定版本
+  await env.DB.prepare(`
+    DELETE FROM version_history 
+    WHERE data_key = ? 
+      AND version_type = 'fixed'
       AND id NOT IN (
         SELECT id FROM version_history 
-        WHERE data_key = ? 
+        WHERE data_key = ? AND version_type = 'fixed'
         ORDER BY saved_at DESC 
-        LIMIT ?
+        LIMIT 100
       )
-    `).bind(key, key, MAX_VERSIONS).run();
+  `).bind(key, key).run();
+}
+
+/**
+ * 创建或覆盖日期版本（复杂逻辑：同日期覆盖最新）
+ */
+async function createOrUpdateAutoVersion(key: string, versionId: string, savedAt: string, data: string, env: Env): Promise<void> {
+  // 1. 获取当前日期版本总数
+  const countResult = await env.DB.prepare(`
+    SELECT COUNT(*) as count FROM version_history 
+    WHERE data_key = ? AND version_type = 'auto'
+  `).bind(key).first<{ count: number }>();
+  
+  const totalCount = countResult?.count || 0;
+  const currentDate = savedAt.split('T')[0]; // YYYY-MM-DD
+  
+  if (totalCount >= 100) {
+    // 2. 查找当天最新的版本
+    const latestSameDay = await env.DB.prepare(`
+      SELECT id, version_id FROM version_history 
+      WHERE data_key = ? AND version_type = 'auto'
+        AND strftime('%Y-%m-%d', saved_at) = ?
+      ORDER BY saved_at DESC
+      LIMIT 1
+    `).bind(key, currentDate).first<{ id: number; version_id: string }>();
+    
+    if (latestSameDay) {
+      // 3a. 有同日期版本，覆盖它
+      await env.DB.prepare(`
+        UPDATE version_history 
+        SET data = ?, saved_at = ?, version_id = ?
+        WHERE id = ?
+      `).bind(data, savedAt, versionId, latestSameDay.id).run();
+    } else {
+      // 3b. 没有同日期版本，创建新的并删除最旧的
+      await env.DB.prepare(`
+        INSERT INTO version_history (data_key, version_id, data, saved_at, comment, version_type)
+        VALUES (?, ?, ?, ?, '', 'auto')
+      `).bind(key, versionId, data, savedAt).run();
+      
+      // 删除最旧的版本（保持总数 <= 100）
+      await env.DB.prepare(`
+        DELETE FROM version_history 
+        WHERE data_key = ? 
+          AND version_type = 'auto'
+          AND id NOT IN (
+            SELECT id FROM version_history 
+            WHERE data_key = ? AND version_type = 'auto'
+            ORDER BY saved_at DESC 
+            LIMIT 100
+          )
+      `).bind(key, key).run();
+    }
+  } else {
+    // 4. 总数 < 100，直接创建
+    await env.DB.prepare(`
+      INSERT INTO version_history (data_key, version_id, data, saved_at, comment, version_type)
+      VALUES (?, ?, ?, ?, '', 'auto')
+    `).bind(key, versionId, data, savedAt).run();
   }
 }
 
@@ -232,7 +288,7 @@ async function handleGetVersions(url: URL, env: Env): Promise<Response> {
   }
 
   const results = await env.DB.prepare(`
-    SELECT version_id, saved_at, comment 
+    SELECT version_id, saved_at, comment, version_type
     FROM version_history 
     WHERE data_key = ? 
     ORDER BY saved_at DESC
@@ -242,6 +298,7 @@ async function handleGetVersions(url: URL, env: Env): Promise<Response> {
     versionId: row.version_id,
     savedAt: row.saved_at,
     comment: row.comment || '',
+    versionType: row.version_type || 'auto',
   }));
 
   return jsonResponse({ 

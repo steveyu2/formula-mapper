@@ -15,6 +15,7 @@ CREATE TABLE IF NOT EXISTS version_history (
   data TEXT NOT NULL,
   saved_at TEXT NOT NULL DEFAULT (datetime('now')),
   comment TEXT DEFAULT '',
+  version_type TEXT NOT NULL DEFAULT 'auto',  -- 'fixed': 固定版本, 'auto': 日期版本
   created_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
 

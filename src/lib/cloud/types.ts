@@ -56,6 +56,7 @@ export interface VersionHistoryItem {
   versionId: string;
   savedAt: string;
   comment?: string;
+  versionType?: 'fixed' | 'auto';  // 'fixed': 固定版本, 'auto': 日期版本
 }
 
 /**
