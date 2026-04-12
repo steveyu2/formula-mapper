@@ -53,7 +53,14 @@ export class FormulaParser {
       if (/\d/.test(char)) {
         let num = char;
         i++;
-        while (i < formula.length && /\d/.test(formula[i])) {
+        let hasDot = char === '.';
+        while (i < formula.length && /[\d.]/.test(formula[i])) {
+          if (formula[i] === '.') {
+            if (hasDot) {
+              throw new Error(`无效的数字格式: 多个小数点 (位置 ${i + 1})`);
+            }
+            hasDot = true;
+          }
           num += formula[i];
           i++;
         }

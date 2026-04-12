@@ -102,7 +102,7 @@ export class FormulaCalculator {
         stepText = `计算 ${leftValue} * ${rightValue} = ${result}`;
         break;
       case '/':
-        if (rightValue === 0) {
+        if (Math.abs(rightValue) < 1e-10) {
           throw new Error('除数不能为零');
         }
         result = leftValue / rightValue;

@@ -60,3 +60,14 @@ export interface FormulaGroup {
   formulas: Formula[];
   createdAt: number;
 }
+
+// 扩展公式类型，包含分组字段
+export interface ExtendedFormula extends Formula {
+  level1Group?: string;
+  level2Group?: string;
+  level3Group?: string;
+  level4Group?: string;
+  level5Group?: string;
+  level6Group?: string;
+  level7Group?: string;
+}
