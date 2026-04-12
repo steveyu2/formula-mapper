@@ -170,14 +170,12 @@ export function VersionHistoryModal({ isOpen, onClose, config, onLoadVersion }: 
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
         <DialogHeader>
-          <Tooltip content="📌 固定版本：每次保存自动创建，最多100个，支持备注编辑 | 📅 自动版本：同日期覆盖，最多100个不同日期">
-            <DialogTitle className="flex items-center gap-2 cursor-help">
-              <svg className="w-5 h-5 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-              </svg>
-              版本历史
-            </DialogTitle>
-          </Tooltip>
+          <DialogTitle className="flex items-center gap-2">
+            <svg className="w-5 h-5 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            版本历史
+          </DialogTitle>
         </DialogHeader>
 
         {isLoading ? (
@@ -199,32 +197,36 @@ export function VersionHistoryModal({ isOpen, onClose, config, onLoadVersion }: 
           <div className="mt-4">
             {/* Tab 切换 */}
             <div className="flex gap-2 mb-4 bg-gray-100 p-1 rounded-lg">
-              <button
-                onClick={() => setActiveTab('fixed')}
-                className={`flex-1 px-4 py-2 rounded-md text-sm font-medium transition-all ${
-                  activeTab === 'fixed'
-                    ? 'bg-white text-blue-600 shadow-sm'
-                    : 'text-gray-600 hover:text-gray-900'
-                }`}
-              >
-                📌 固定版本
-                <span className="ml-2 text-xs opacity-75">
-                  ({versions.filter(v => v.versionType === 'fixed').length}/100)
-                </span>
-              </button>
-              <button
-                onClick={() => setActiveTab('auto')}
-                className={`flex-1 px-4 py-2 rounded-md text-sm font-medium transition-all ${
-                  activeTab === 'auto'
-                    ? 'bg-white text-blue-600 shadow-sm'
-                    : 'text-gray-600 hover:text-gray-900'
-                }`}
-              >
-                📅 自动版本
-                <span className="ml-2 text-xs opacity-75">
-                  ({versions.filter(v => v.versionType === 'auto' || !v.versionType).length}/100)
-                </span>
-              </button>
+              <Tooltip content="每次保存自动创建，最多保留100个。支持编辑备注，适合标记重要版本。">
+                <button
+                  onClick={() => setActiveTab('fixed')}
+                  className={`flex-1 px-4 py-2 rounded-md text-sm font-medium transition-all border-b-2 ${
+                    activeTab === 'fixed'
+                      ? 'bg-white text-blue-600 shadow-sm border-blue-600'
+                      : 'text-gray-600 hover:text-gray-900 border-transparent hover:border-gray-400'
+                  }`}
+                >
+                  📌 固定版本
+                  <span className="ml-2 text-xs opacity-75">
+                    ({versions.filter(v => v.versionType === 'fixed').length}/100)
+                  </span>
+                </button>
+              </Tooltip>
+              <Tooltip content="同一天内保存会覆盖当天最新版本，最多保留100个不同日期。自动管理，无需手动操作。">
+                <button
+                  onClick={() => setActiveTab('auto')}
+                  className={`flex-1 px-4 py-2 rounded-md text-sm font-medium transition-all border-b-2 ${
+                    activeTab === 'auto'
+                      ? 'bg-white text-blue-600 shadow-sm border-blue-600'
+                      : 'text-gray-600 hover:text-gray-900 border-transparent hover:border-gray-400'
+                  }`}
+                >
+                  📅 自动版本
+                  <span className="ml-2 text-xs opacity-75">
+                    ({versions.filter(v => v.versionType === 'auto' || !v.versionType).length}/100)
+                  </span>
+                </button>
+              </Tooltip>
             </div>
 
             {/* 固定版本列表 */}
