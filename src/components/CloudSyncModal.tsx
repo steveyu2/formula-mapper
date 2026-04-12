@@ -154,12 +154,14 @@ export function CloudSyncModal({ isOpen, onClose, groups, onLoadData }: CloudSyn
       return;
     }
 
+    console.log('[CloudSync] saveToCloud called with password:', writePassword ? 'yes' : 'no');
     setIsLoading(true);
     try {
       const provider = createProvider();
       
       // 如果有密码，需要设置到 provider
       if (writePassword) {
+        console.log('[CloudSync] Setting write password to provider');
         (provider as any).cloudflareConfig.writePassword = writePassword;
       }
       
@@ -216,6 +218,7 @@ export function CloudSyncModal({ isOpen, onClose, groups, onLoadData }: CloudSyn
   };
 
   const handlePasswordSubmit = (password: string) => {
+    console.log('[CloudSync] handlePasswordSubmit called with password:', password ? 'yes' : 'no');
     setShowPasswordDialog(false);
     saveToCloud(password || undefined);
   };

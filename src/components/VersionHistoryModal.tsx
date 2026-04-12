@@ -29,10 +29,12 @@ export function VersionHistoryModal({ isOpen, onClose, config, onLoadVersion }: 
   const [previewData, setPreviewData] = useState<{ versionId: string; savedAt: string; groups: FormulaGroup[] } | null>(null);
   const [editingComment, setEditingComment] = useState<{ versionId: string; comment: string } | null>(null);
   const [isSavingComment, setIsSavingComment] = useState(false);
+  const [activeTab, setActiveTab] = useState<'fixed' | 'auto'>('fixed'); // 默认显示固定版本
 
   useEffect(() => {
     if (isOpen && config) {
       loadVersions();
+      setActiveTab('fixed'); // 每次打开时默认显示固定版本
     }
   }, [isOpen, config]);
 
@@ -191,72 +193,104 @@ export function VersionHistoryModal({ isOpen, onClose, config, onLoadVersion }: 
             <p className="text-sm mt-1">保存数据后将自动创建版本</p>
           </div>
         ) : (
-          <div className="space-y-6 mt-4">
-            {/* 版本统计 */}
-            <div className="text-xs text-gray-600 bg-gray-50 p-3 rounded-lg">
-              <span className="font-medium">📊 版本统计：</span>
-              <span className="mr-4">固定版本 {versions.filter(v => v.versionType === 'fixed').length}/100</span>
-              <span>自动版本 {versions.filter(v => v.versionType === 'auto' || !v.versionType).length}/100</span>
+          <div className="mt-4">
+            {/* Tab 切换 */}
+            <div className="flex gap-2 mb-4 bg-gray-100 p-1 rounded-lg">
+              <button
+                onClick={() => setActiveTab('fixed')}
+                className={`flex-1 px-4 py-2 rounded-md text-sm font-medium transition-all ${
+                  activeTab === 'fixed'
+                    ? 'bg-white text-blue-600 shadow-sm'
+                    : 'text-gray-600 hover:text-gray-900'
+                }`}
+              >
+                📌 固定版本
+                <span className="ml-2 text-xs opacity-75">
+                  ({versions.filter(v => v.versionType === 'fixed').length}/100)
+                </span>
+              </button>
+              <button
+                onClick={() => setActiveTab('auto')}
+                className={`flex-1 px-4 py-2 rounded-md text-sm font-medium transition-all ${
+                  activeTab === 'auto'
+                    ? 'bg-white text-blue-600 shadow-sm'
+                    : 'text-gray-600 hover:text-gray-900'
+                }`}
+              >
+                📅 自动版本
+                <span className="ml-2 text-xs opacity-75">
+                  ({versions.filter(v => v.versionType === 'auto' || !v.versionType).length}/100)
+                </span>
+              </button>
             </div>
 
-            {/* 固定版本 */}
-            {versions.filter(v => v.versionType === 'fixed').length > 0 && (
+            {/* 固定版本列表 */}
+            {activeTab === 'fixed' && (
               <div>
-                <h3 className="text-sm font-semibold text-gray-700 mb-3 flex items-center gap-2">
-                  <span>📌 固定版本</span>
-                  <span className="text-xs text-gray-500 font-normal">
-                    ({versions.filter(v => v.versionType === 'fixed').length}/100个)
-                  </span>
-                </h3>
-                <div className="space-y-3">
-                  {versions.filter(v => v.versionType === 'fixed').map((version, index) => (
-                    <VersionItem
-                      key={version.versionId}
-                      version={version}
-                      index={index}
-                      versions={versions.filter(v => v.versionType === 'fixed')}
-                      formatDate={formatDate}
-                      isLoadingVersion={isLoadingVersion}
-                      handlePreviewVersion={handlePreviewVersion}
-                      handleLoadVersion={handleLoadVersion}
-                      editingComment={editingComment}
-                      setEditingComment={setEditingComment}
-                      handleEditComment={handleEditComment}
-                      isSavingComment={isSavingComment}
-                    />
-                  ))}
-                </div>
+                {versions.filter(v => v.versionType === 'fixed').length === 0 ? (
+                  <div className="text-center py-12 text-gray-500">
+                    <svg className="w-16 h-16 mx-auto mb-4 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+                    </svg>
+                    <p>暂无固定版本</p>
+                    <p className="text-sm mt-1">每次保存将自动创建固定版本</p>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    {versions.filter(v => v.versionType === 'fixed').map((version, index) => (
+                      <VersionItem
+                        key={version.versionId}
+                        version={version}
+                        index={index}
+                        versions={versions.filter(v => v.versionType === 'fixed')}
+                        formatDate={formatDate}
+                        isLoadingVersion={isLoadingVersion}
+                        handlePreviewVersion={handlePreviewVersion}
+                        handleLoadVersion={handleLoadVersion}
+                        editingComment={editingComment}
+                        setEditingComment={setEditingComment}
+                        handleEditComment={handleEditComment}
+                        isSavingComment={isSavingComment}
+                        showEditComment={true}
+                      />
+                    ))}
+                  </div>
+                )}
               </div>
             )}
 
-            {/* 日期版本 */}
-            {versions.filter(v => v.versionType === 'auto' || !v.versionType).length > 0 && (
+            {/* 自动版本列表 */}
+            {activeTab === 'auto' && (
               <div>
-                <h3 className="text-sm font-semibold text-gray-700 mb-3 flex items-center gap-2">
-                  <span>📅 自动版本</span>
-                  <span className="text-xs text-gray-500 font-normal">
-                    ({versions.filter(v => v.versionType === 'auto' || !v.versionType).length}/100个)
-                  </span>
-                </h3>
-                <div className="space-y-3">
-                  {versions.filter(v => v.versionType === 'auto' || !v.versionType).map((version, index) => (
-                    <VersionItem
-                      key={version.versionId}
-                      version={version}
-                      index={index}
-                      versions={versions.filter(v => v.versionType === 'auto' || !v.versionType)}
-                      formatDate={formatDate}
-                      isLoadingVersion={isLoadingVersion}
-                      handlePreviewVersion={handlePreviewVersion}
-                      handleLoadVersion={handleLoadVersion}
-                      editingComment={editingComment}
-                      setEditingComment={setEditingComment}
-                      handleEditComment={handleEditComment}
-                      isSavingComment={isSavingComment}
-                      showEditComment={false}
-                    />
-                  ))}
-                </div>
+                {versions.filter(v => v.versionType === 'auto' || !v.versionType).length === 0 ? (
+                  <div className="text-center py-12 text-gray-500">
+                    <svg className="w-16 h-16 mx-auto mb-4 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+                    </svg>
+                    <p>暂无自动版本</p>
+                    <p className="text-sm mt-1">每次保存将自动创建自动版本</p>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    {versions.filter(v => v.versionType === 'auto' || !v.versionType).map((version, index) => (
+                      <VersionItem
+                        key={version.versionId}
+                        version={version}
+                        index={index}
+                        versions={versions.filter(v => v.versionType === 'auto' || !v.versionType)}
+                        formatDate={formatDate}
+                        isLoadingVersion={isLoadingVersion}
+                        handlePreviewVersion={handlePreviewVersion}
+                        handleLoadVersion={handleLoadVersion}
+                        editingComment={editingComment}
+                        setEditingComment={setEditingComment}
+                        handleEditComment={handleEditComment}
+                        isSavingComment={isSavingComment}
+                        showEditComment={false}
+                      />
+                    ))}
+                  </div>
+                )}
               </div>
             )}
           </div>

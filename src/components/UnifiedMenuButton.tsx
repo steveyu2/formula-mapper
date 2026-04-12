@@ -312,6 +312,9 @@ export function UnifiedMenuButton({
                   handleSaveToCloud((e.target as HTMLInputElement).value);
                 }
               }}
+              ref={(input) => {
+                if (input) input.focus();
+              }}
             />
             <div className="flex gap-2">
               <button
@@ -322,8 +325,9 @@ export function UnifiedMenuButton({
               </button>
               <button
                 onClick={(e) => {
-                  const input = (e.target as HTMLElement).previousElementSibling?.previousElementSibling as HTMLInputElement;
-                  handleSaveToCloud(input?.value);
+                  const dialog = (e.target as HTMLElement).closest('.bg-white');
+                  const input = dialog?.querySelector('input[type="password"]') as HTMLInputElement;
+                  handleSaveToCloud(input?.value || '');
                 }}
                 className="flex-1 px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600"
               >
