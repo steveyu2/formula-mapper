@@ -1066,10 +1066,10 @@ function HomeContent() {
       
       {/* 真实内容 */}
       <div 
-        className="px-2.5 w-full max-w-full overflow-hidden transition-opacity duration-300 ease-in-out"
+        className="w-full max-w-full overflow-hidden transition-opacity duration-300 ease-in-out"
         style={{ 
-          paddingTop: '10px', 
-          paddingBottom: '10px',
+          paddingTop: '0', 
+          paddingBottom: '0',
           opacity: isLoading ? 0.3 : 1,
           pointerEvents: isLoading ? 'none' : 'auto'
         }}
@@ -1090,7 +1090,7 @@ function HomeContent() {
         </div>
       )}
 
-      <div className="px-2.5 w-full max-w-full overflow-hidden" style={{ paddingTop: '10px', paddingBottom: '10px' }}>
+      <div className="w-full max-w-full overflow-hidden" style={{ paddingTop: '0', paddingBottom: '0' }}>
         {/* 标题 */}
         <div className="mb-0">
           <input
@@ -1109,12 +1109,12 @@ function HomeContent() {
           </div>
         )}
 
-        <div className="flex gap-2.5" style={{ marginTop: '10px' }}>
+        <div className="flex gap-2.5" style={{ marginTop: '0' }}>
           {/* 表格视图 - 全屏显示 */}
           <div className="flex-1">
-            <div className="bg-white shadow-sm border border-gray-200 overflow-hidden" style={{ height: 'calc(100vh - 80px)' }}>
+            <div className="bg-white shadow-sm border border-gray-200 overflow-hidden flex flex-col" style={{ height: '100vh' }}>
               {/* Sheet Tabs 和操作按钮 */}
-              <div className="flex items-center gap-3 border-b border-gray-200 bg-gray-50 px-3 py-2">
+              <div className="flex items-center gap-3 border-b border-gray-200 bg-gray-50 px-3 py-2 flex-shrink-0">
                 {/* 统一菜单按钮 */}
                 <UnifiedMenuButton
                   groups={groups}
