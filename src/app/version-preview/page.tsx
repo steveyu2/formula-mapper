@@ -3,6 +3,7 @@
 import { useState, useEffect, Suspense } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { FormulaSpreadsheet } from '@/components/FormulaSpreadsheet';
+import { FormulaDetailModal } from '@/components/FormulaDetailModal';
 import { FormulaGroup, Formula } from '@/lib/types';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
@@ -14,6 +15,8 @@ function VersionPreviewContent() {
   const [groups, setGroups] = useState<FormulaGroup[]>([]);
   const [selectedGroupId, setSelectedGroupId] = useState<string | null>(null);
   const [savedAt, setSavedAt] = useState<string>('');
+  const [previewFormula, setPreviewFormula] = useState<Formula | null>(null);
+  const [showDetailModal, setShowDetailModal] = useState(false);
 
   useEffect(() => {
     // 从 URL 参数中获取版本 ID
@@ -59,8 +62,9 @@ function VersionPreviewContent() {
   }, [searchParams, router]);
 
   const handleRowClick = (formula: Formula) => {
-    // 预览模式下不允许编辑
-    toast.info('预览模式：无法编辑');
+    // 预览模式下打开公式详情弹窗（只读）
+    setPreviewFormula(formula);
+    setShowDetailModal(true);
   };
 
   const handleUpdateFormula = (formulaId: string, updates: Partial<Formula>) => {
@@ -118,6 +122,21 @@ function VersionPreviewContent() {
           onOpenSortModal={handleOpenSortModal}
           isPreviewMode={true}
         />
+
+        {/* 公式详情弹窗（只读预览） */}
+        {showDetailModal && previewFormula && (
+          <FormulaDetailModal
+            isOpen={showDetailModal}
+            onClose={() => setShowDetailModal(false)}
+            formula={previewFormula}
+            onSave={() => {
+              // 预览模式下不允许保存
+              toast.info('预览模式：无法编辑');
+            }}
+            allFormulas={{}}
+            groups={groups}
+          />
+        )}
       </div>
     </div>
   );
