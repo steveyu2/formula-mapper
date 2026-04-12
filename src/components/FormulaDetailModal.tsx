@@ -5,6 +5,7 @@ import { Formula } from '@/lib/types';
 import { FormulaParser } from '@/lib/parser';
 import { VariableMapper } from '@/lib/mapper';
 import { ASTTree } from './ASTTree';
+import { FormulaRenderer } from './FormulaRenderer';
 import { SubFormulaManager } from './SubFormulaManager';
 import { GroupSelector } from './GroupSelector';
 import { FormulaReferenceSelector } from './FormulaReferenceSelector';
@@ -263,6 +264,17 @@ export function FormulaDetailModal({
           {/* 预览 Tab */}
           {activeTab === 'preview' && (
             <div className="space-y-4">
+              {/* 公式渲染视图 */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1.5">公式渲染</label>
+                <div className="border border-gray-300 rounded-lg p-4 bg-white min-h-[100px]">
+                  <FormulaRenderer
+                    formula={editFormula.englishFormula}
+                    mapping={mapping}
+                  />
+                </div>
+              </div>
+
               {/* 公式信息 */}
               <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
                 <h4 className="text-sm font-semibold text-blue-900 mb-2">{editFormula.name}</h4>
