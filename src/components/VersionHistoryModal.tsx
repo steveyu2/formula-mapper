@@ -30,6 +30,7 @@ export function VersionHistoryModal({ isOpen, onClose, config, onLoadVersion }: 
   const [previewData, setPreviewData] = useState<{ versionId: string; savedAt: string; groups: FormulaGroup[] } | null>(null);
   const [editingComment, setEditingComment] = useState<{ versionId: string; comment: string } | null>(null);
   const [isSavingComment, setIsSavingComment] = useState(false);
+  const [showPasswordDialog, setShowPasswordDialog] = useState<{ versionId: string; comment: string } | null>(null);
   const [activeTab, setActiveTab] = useState<'fixed' | 'auto'>('fixed'); // 默认显示固定版本
 
   useEffect(() => {
@@ -130,7 +131,30 @@ export function VersionHistoryModal({ isOpen, onClose, config, onLoadVersion }: 
     }
   };
 
+  // 处理编辑备注（先检查是否需要密码）
   const handleEditComment = async (versionId: string, newComment: string) => {
+    if (!config) return;
+    
+    try {
+      // 先检查 Worker 是否需要密码
+      const response = await fetch(`${config.endpoint}/need-password`);
+      const result = await response.json();
+      
+      if (result.needPassword) {
+        // 需要密码，弹出输入框
+        setShowPasswordDialog({ versionId, comment: newComment });
+      } else {
+        // 不需要密码，直接保存
+        await executeEditComment(versionId, newComment);
+      }
+    } catch (error) {
+      // 如果检测失败，仍然弹出密码框
+      setShowPasswordDialog({ versionId, comment: newComment });
+    }
+  };
+
+  // 执行编辑备注（带密码）
+  const executeEditComment = async (versionId: string, newComment: string, writePassword?: string) => {
     if (!config) return;
     
     setIsSavingComment(true);
@@ -141,6 +165,7 @@ export function VersionHistoryModal({ isOpen, onClose, config, onLoadVersion }: 
         endpoint: config.endpoint,
         apiKey: config.apiKey,
         namespaceId: config.namespaceId,
+        writePassword, // 传递密码
       });
 
       // 先加载版本数据
@@ -162,6 +187,14 @@ export function VersionHistoryModal({ isOpen, onClose, config, onLoadVersion }: 
       toast.error(error instanceof Error ? error.message : '更新备注失败');
     } finally {
       setIsSavingComment(false);
+    }
+  };
+
+  // 处理密码提交
+  const handlePasswordSubmit = (password: string) => {
+    if (showPasswordDialog) {
+      setShowPasswordDialog(null);
+      executeEditComment(showPasswordDialog.versionId, showPasswordDialog.comment, password || undefined);
     }
   };
 
@@ -321,6 +354,49 @@ export function VersionHistoryModal({ isOpen, onClose, config, onLoadVersion }: 
         config={config!}
         onClose={() => setPreviewData(null)}
       />
+    )}
+
+    {/* 密码输入对话框 */}
+    {showPasswordDialog && (
+      <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[1000]">
+        <div className="bg-white rounded-2xl shadow-2xl p-6 w-full max-w-md mx-4">
+          <h3 className="text-lg font-semibold mb-4">输入写入密码</h3>
+          <p className="text-sm text-gray-600 mb-4">
+            编辑版本备注需要输入写入密码
+          </p>
+          <input
+            type="password"
+            placeholder="请输入写入密码"
+            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 mb-4"
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') {
+                handlePasswordSubmit((e.target as HTMLInputElement).value);
+              }
+              if (e.key === 'Escape') {
+                setShowPasswordDialog(null);
+              }
+            }}
+            autoFocus
+          />
+          <div className="flex gap-2">
+            <button
+              onClick={() => setShowPasswordDialog(null)}
+              className="flex-1 px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors"
+            >
+              取消
+            </button>
+            <button
+              onClick={() => {
+                const input = document.querySelector('input[type="password"]') as HTMLInputElement;
+                handlePasswordSubmit(input?.value || '');
+              }}
+              className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+            >
+              确认保存
+            </button>
+          </div>
+        </div>
+      </div>
     )}
     </Fragment>
   );
