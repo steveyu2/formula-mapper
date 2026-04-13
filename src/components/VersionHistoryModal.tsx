@@ -3,7 +3,7 @@
 import { useState, useEffect, Fragment } from 'react';
 import { VersionHistoryItem } from '@/lib/cloud/types';
 import { FormulaGroup } from '@/lib/types';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
@@ -30,14 +30,18 @@ export function VersionHistoryModal({ isOpen, onClose, config, onLoadVersion }: 
   const [previewData, setPreviewData] = useState<{ versionId: string; savedAt: string; groups: FormulaGroup[] } | null>(null);
   const [editingComment, setEditingComment] = useState<{ versionId: string; comment: string } | null>(null);
   const [isSavingComment, setIsSavingComment] = useState(false);
-  const [showPasswordDialog, setShowPasswordDialog] = useState<{ versionId: string; comment: string } | null>(null);
+  const [showPasswordInputDialog, setShowPasswordInputDialog] = useState(false);
+  const [pendingEdit, setPendingEdit] = useState<{ versionId: string; comment: string } | null>(null);
   const [activeTab, setActiveTab] = useState<'fixed' | 'auto'>('fixed'); // 默认显示固定版本
+  const [isDialogOpen, setIsDialogOpen] = useState(isOpen); // 本地状态，用于控制 Dialog
+  const [isPasswordDialogOpen, setIsPasswordDialogOpen] = useState(false); // 密码对话框状态
 
   useEffect(() => {
     if (isOpen && config) {
       loadVersions();
       setActiveTab('fixed'); // 每次打开时默认显示固定版本
     }
+    setIsDialogOpen(isOpen); // 同步外部状态
   }, [isOpen, config]);
 
   const loadVersions = async () => {
@@ -141,15 +145,19 @@ export function VersionHistoryModal({ isOpen, onClose, config, onLoadVersion }: 
       const result = await response.json();
       
       if (result.needPassword) {
-        // 需要密码，弹出输入框
-        setShowPasswordDialog({ versionId, comment: newComment });
+        // 需要密码，显示密码输入框
+        setPendingEdit({ versionId, comment: newComment });
+        setShowPasswordInputDialog(true);
+        setIsPasswordDialogOpen(true);
       } else {
         // 不需要密码，直接保存
         await executeEditComment(versionId, newComment);
       }
     } catch (error) {
-      // 如果检测失败，仍然弹出密码框
-      setShowPasswordDialog({ versionId, comment: newComment });
+      // 如果检测失败，仍然显示密码框
+      setPendingEdit({ versionId, comment: newComment });
+      setShowPasswordInputDialog(true);
+      setIsPasswordDialogOpen(true);
     }
   };
 
@@ -159,29 +167,28 @@ export function VersionHistoryModal({ isOpen, onClose, config, onLoadVersion }: 
     
     setIsSavingComment(true);
     try {
-      const { CloudflareStorageProvider, StorageProviderType } = await import('@/lib/cloud');
-      const provider = new CloudflareStorageProvider({
-        type: StorageProviderType.CLOUDFLARE,
-        endpoint: config.endpoint,
-        apiKey: config.apiKey,
-        namespaceId: config.namespaceId,
-        writePassword, // 传递密码
+      // 使用专门的更新备注 API，不会创建新版本
+      const response = await fetch(`${config.endpoint}/update-version-comment`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(config.apiKey && { 'Authorization': `Bearer ${config.apiKey}` }),
+          ...(writePassword && { 'X-Write-Password': writePassword }),
+        },
+        body: JSON.stringify({
+          versionId,
+          comment: newComment,
+        }),
       });
 
-      // 先加载版本数据
-      const result = await provider.loadVersion('formula-data', versionId);
-      if (result.success && result.data) {
-        // 重新保存，更新备注
-        const saveResult = await provider.save('formula-data', result.data, newComment);
-        if (saveResult.success) {
-          toast.success('备注已更新');
-          setEditingComment(null);
-          loadVersions(); // 刷新版本列表
-        } else {
-          toast.error(saveResult.error || '更新备注失败');
-        }
+      const result = await response.json();
+      
+      if (result.success) {
+        toast.success('备注已更新');
+        setEditingComment(null);
+        loadVersions(); // 刷新版本列表
       } else {
-        toast.error(result.error || '加载版本失败');
+        toast.error(result.error || '更新备注失败');
       }
     } catch (error) {
       toast.error(error instanceof Error ? error.message : '更新备注失败');
@@ -192,15 +199,77 @@ export function VersionHistoryModal({ isOpen, onClose, config, onLoadVersion }: 
 
   // 处理密码提交
   const handlePasswordSubmit = (password: string) => {
-    if (showPasswordDialog) {
-      setShowPasswordDialog(null);
-      executeEditComment(showPasswordDialog.versionId, showPasswordDialog.comment, password || undefined);
+    setIsPasswordDialogOpen(false);
+    setShowPasswordInputDialog(false);
+    if (pendingEdit) {
+      executeEditComment(pendingEdit.versionId, pendingEdit.comment, password || undefined);
+      setPendingEdit(null);
     }
   };
 
+  const handlePasswordCancel = () => {
+    setIsPasswordDialogOpen(false);
+    setShowPasswordInputDialog(false);
+    setPendingEdit(null);
+  };
+
   return (
-    <Fragment>
-    <Dialog open={isOpen} onOpenChange={onClose}>
+    <>
+    {/* 密码输入对话框 */}
+    <Dialog open={isPasswordDialogOpen} onOpenChange={(open) => {
+      if (!open) {
+        handlePasswordCancel();
+      }
+    }}>
+      <DialogContent className="sm:max-w-[400px]">
+        <DialogHeader>
+          <DialogTitle>输入写入密码</DialogTitle>
+          <DialogDescription className="text-sm text-gray-600">
+            编辑版本备注需要输入写入密码
+          </DialogDescription>
+        </DialogHeader>
+        <div className="py-4">
+          <input
+            type="password"
+            placeholder="请输入写入密码"
+            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 mb-4"
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') {
+                handlePasswordSubmit((e.target as HTMLInputElement).value);
+              }
+            }}
+            autoFocus
+          />
+          <div className="flex gap-2">
+            <button
+              onClick={handlePasswordCancel}
+              className="flex-1 px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors"
+            >
+              取消
+            </button>
+            <button
+              onClick={() => {
+                const input = document.querySelector('input[type="password"]') as HTMLInputElement;
+                handlePasswordSubmit(input?.value || '');
+              }}
+              className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+            >
+              确认保存
+            </button>
+          </div>
+        </div>
+      </DialogContent>
+    </Dialog>
+
+    <Dialog 
+      open={isDialogOpen} 
+      onOpenChange={(open) => {
+        if (!open) {
+          onClose();
+        }
+        setIsDialogOpen(open);
+      }}
+    >
       <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
@@ -209,14 +278,49 @@ export function VersionHistoryModal({ isOpen, onClose, config, onLoadVersion }: 
             </svg>
             版本历史
           </DialogTitle>
+          <DialogDescription>
+            查看和管理数据的历史版本
+          </DialogDescription>
         </DialogHeader>
 
         {isLoading ? (
-          <div className="flex items-center justify-center py-12">
-            <svg className="animate-spin h-8 w-8 text-blue-500" fill="none" viewBox="0 0 24 24">
-              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-            </svg>
+          // 骨架屏
+          <div className="mt-4 min-h-[400px]">
+            {/* Tab 切换骨架 */}
+            <div className="flex gap-2 mb-4 bg-gray-100 p-1 rounded-lg animate-pulse">
+              <div className="flex-1 h-9 bg-gray-200 rounded-md"></div>
+              <div className="flex-1 h-9 bg-gray-200 rounded-md"></div>
+            </div>
+            
+            {/* 版本列表骨架 */}
+            <div className="space-y-3">
+              {[...Array(3)].map((_, i) => (
+                <div key={i} className="flex items-center gap-4 p-4 bg-gray-50 rounded-lg border border-gray-200 animate-pulse">
+                  {/* 左侧圆形序号 */}
+                  <div className="flex-shrink-0">
+                    <div className="w-10 h-10 bg-gray-200 rounded-full"></div>
+                  </div>
+
+                  {/* 中间内容区 */}
+                  <div className="flex-1 min-w-0 space-y-2">
+                    {/* 日期行 */}
+                    <div className="flex items-center gap-2">
+                      <div className="h-4 bg-gray-200 rounded w-32"></div>
+                      {i === 0 && <div className="h-5 bg-gray-200 rounded-full w-10"></div>}
+                      <div className="h-5 bg-gray-200 rounded-full w-10"></div>
+                    </div>
+                    {/* 备注行 */}
+                    <div className="h-4 bg-gray-200 rounded w-48"></div>
+                  </div>
+
+                  {/* 右侧按钮 */}
+                  <div className="flex gap-2">
+                    <div className="h-9 bg-gray-200 rounded-lg w-20"></div>
+                    <div className="h-9 bg-gray-200 rounded-lg w-24"></div>
+                  </div>
+                </div>
+              ))}
+            </div>
           </div>
         ) : versions.length === 0 ? (
           <div className="text-center py-12 text-gray-500">
@@ -356,49 +460,7 @@ export function VersionHistoryModal({ isOpen, onClose, config, onLoadVersion }: 
       />
     )}
 
-    {/* 密码输入对话框 */}
-    {showPasswordDialog && (
-      <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[1000]">
-        <div className="bg-white rounded-2xl shadow-2xl p-6 w-full max-w-md mx-4">
-          <h3 className="text-lg font-semibold mb-4">输入写入密码</h3>
-          <p className="text-sm text-gray-600 mb-4">
-            编辑版本备注需要输入写入密码
-          </p>
-          <input
-            type="password"
-            placeholder="请输入写入密码"
-            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 mb-4"
-            onKeyDown={(e) => {
-              if (e.key === 'Enter') {
-                handlePasswordSubmit((e.target as HTMLInputElement).value);
-              }
-              if (e.key === 'Escape') {
-                setShowPasswordDialog(null);
-              }
-            }}
-            autoFocus
-          />
-          <div className="flex gap-2">
-            <button
-              onClick={() => setShowPasswordDialog(null)}
-              className="flex-1 px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors"
-            >
-              取消
-            </button>
-            <button
-              onClick={() => {
-                const input = document.querySelector('input[type="password"]') as HTMLInputElement;
-                handlePasswordSubmit(input?.value || '');
-              }}
-              className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-            >
-              确认保存
-            </button>
-          </div>
-        </div>
-      </div>
-    )}
-    </Fragment>
+    </>
   );
 }
 

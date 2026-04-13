@@ -78,6 +78,12 @@ export default {
           return handleGetVersions(url, env);
         case '/load-version':
           return handleLoadVersion(url, env);
+        case '/update-version-comment':
+          // 验证写入密码
+          if (!validateWritePassword(request, env)) {
+            return errorResponse('Invalid write password', 403);
+          }
+          return handleUpdateVersionComment(request, env);
         default:
           return errorResponse('Not Found', 404);
       }
@@ -376,6 +382,31 @@ async function handleList(env: Env): Promise<Response> {
   const keys = results.results.map((row: any) => row.id);
 
   return jsonResponse({ success: true, keys });
+}
+
+/**
+ * 更新版本备注（不创建新版本）
+ */
+async function handleUpdateVersionComment(request: Request, env: Env): Promise<Response> {
+  const body = await request.json() as { versionId: string; comment: string };
+  const { versionId, comment } = body;
+
+  if (!versionId) {
+    return errorResponse('Missing versionId', 400);
+  }
+
+  // 更新版本的备注字段
+  const result = await env.DB.prepare(`
+    UPDATE version_history 
+    SET comment = ?
+    WHERE version_id = ?
+  `).bind(comment || '', versionId).run();
+
+  if (result.meta.changes === 0) {
+    return errorResponse('Version not found', 404);
+  }
+
+  return jsonResponse({ success: true, message: 'Comment updated' });
 }
 
 /**

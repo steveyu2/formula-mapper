@@ -52,6 +52,7 @@ export function CloudSyncModal({ isOpen, onClose, groups, onLoadData }: CloudSyn
   const [showProviderSelector, setShowProviderSelector] = useState(true);
   const [showPasswordDialog, setShowPasswordDialog] = useState(false);
   const [pendingSaveWithPassword, setPendingSaveWithPassword] = useState<string | null>(null);
+  const [isPasswordDialogOpen, setIsPasswordDialogOpen] = useState(false); // 密码对话框状态
 
   // 加载已保存的配置
   useEffect(() => {
@@ -207,6 +208,7 @@ export function CloudSyncModal({ isOpen, onClose, groups, onLoadData }: CloudSyn
       if (result.needPassword) {
         // 需要密码，弹出输入框
         setShowPasswordDialog(true);
+        setIsPasswordDialogOpen(true);
       } else {
         // 不需要密码，直接保存
         saveToCloud();
@@ -214,13 +216,20 @@ export function CloudSyncModal({ isOpen, onClose, groups, onLoadData }: CloudSyn
     } catch (error) {
       // 如果检测失败，仍然弹出密码框
       setShowPasswordDialog(true);
+      setIsPasswordDialogOpen(true);
     }
   };
 
   const handlePasswordSubmit = (password: string) => {
     console.log('[CloudSync] handlePasswordSubmit called with password:', password ? 'yes' : 'no');
     setShowPasswordDialog(false);
+    setIsPasswordDialogOpen(false);
     saveToCloud(password || undefined);
+  };
+
+  const handlePasswordCancel = () => {
+    setShowPasswordDialog(false);
+    setIsPasswordDialogOpen(false);
   };
 
   const loadFromCloud = async () => {
@@ -473,17 +482,17 @@ export function CloudSyncModal({ isOpen, onClose, groups, onLoadData }: CloudSyn
         </div>
       </DialogContent>
 
-      {/* 密码输入对话框 - 直接渲染在 Dialog 内部 */}
-      {showPasswordDialog && (
-        <div 
-          className="fixed inset-0 bg-black bg-opacity-85 flex items-center justify-center z-[60]"
-          onClick={(e) => e.stopPropagation()}
-        >
-          <div 
-            className="bg-white rounded-2xl shadow-2xl p-6 w-full max-w-sm mx-4"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <h3 className="text-lg font-semibold mb-4">输入写入密码</h3>
+      {/* 密码输入对话框 */}
+      <Dialog open={isPasswordDialogOpen} onOpenChange={(open) => {
+        if (!open) {
+          handlePasswordCancel();
+        }
+      }}>
+        <DialogContent className="sm:max-w-[400px]">
+          <DialogHeader>
+            <DialogTitle>输入写入密码</DialogTitle>
+          </DialogHeader>
+          <div className="py-4">
             <p className="text-sm text-gray-600 mb-4">
               保存到云端需要输入写入密码
             </p>
@@ -493,28 +502,20 @@ export function CloudSyncModal({ isOpen, onClose, groups, onLoadData }: CloudSyn
               className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 mb-4"
               onKeyDown={(e) => {
                 if (e.key === 'Enter') {
-                  e.stopPropagation();
                   handlePasswordSubmit((e.target as HTMLInputElement).value);
-                }
-                if (e.key === 'Escape') {
-                  e.stopPropagation();
                 }
               }}
               autoFocus
             />
             <div className="flex gap-2">
               <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setShowPasswordDialog(false);
-                }}
+                onClick={handlePasswordCancel}
                 className="flex-1 px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors"
               >
                 取消
               </button>
               <button
-                onClick={(e) => {
-                  e.stopPropagation();
+                onClick={() => {
                   const input = document.querySelector('input[type="password"]') as HTMLInputElement;
                   handlePasswordSubmit(input?.value || '');
                 }}
@@ -524,8 +525,8 @@ export function CloudSyncModal({ isOpen, onClose, groups, onLoadData }: CloudSyn
               </button>
             </div>
           </div>
-        </div>
-      )}
+        </DialogContent>
+      </Dialog>
     </Dialog>
   );
 }
