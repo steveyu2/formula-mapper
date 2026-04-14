@@ -32,7 +32,14 @@ export const FormulaRenderer = memo(({
   onFormulaReferenceClick
 }: FormulaRendererProps) => {
   // 缓存 token 化结果
-  const tokens = useMemo(() => tokenizeFormula(formula), [formula]);
+  const tokens = useMemo(() => {
+    console.log('=== FormulaRenderer ===');
+    console.log('输入的 formula:', formula);
+    console.log('mapping:', mapping);
+    const result = tokenizeFormula(formula);
+    console.log('tokenize 结果:', result);
+    return result;
+  }, [formula]);
 
   // 缓存变量颜色索引
   const variableColorIndex = useMemo(() => {
@@ -124,11 +131,6 @@ export const FormulaRenderer = memo(({
       })}
     </div>
   );
-}, (prev, next) => {
-  // 自定义比较：只在 formula 或 mapping 变化时重新渲染
-  return prev.formula === next.formula && 
-         prev.mapping === next.mapping &&
-         prev.formulaReferences === next.formulaReferences;
 });
 
 interface Token {

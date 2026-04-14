@@ -20,12 +20,19 @@ export function SubFormulaModal({ subFormula, onClose }: SubFormulaModalProps) {
   // 解析公式
   useEffect(() => {
     try {
+      console.log('=== SubFormula 数据 ===');
+      console.log('英文公式:', subFormula.englishFormula);
+      console.log('中文公式:', subFormula.chineseFormula);
+      
       const mappingResult = VariableMapper.createMapping(
         subFormula.englishFormula,
         subFormula.chineseFormula
       );
+      console.log('变量映射:', mappingResult.mapping);
+      
       setMapping(mappingResult.mapping);
       const parsedAst = FormulaParser.parse(subFormula.englishFormula);
+      console.log('AST:', parsedAst);
       setAst(parsedAst);
       setError('');
     } catch (err) {
@@ -43,6 +50,8 @@ export function SubFormulaModal({ subFormula, onClose }: SubFormulaModalProps) {
     document.addEventListener('keydown', handleKeyDown);
     return () => document.removeEventListener('keydown', handleKeyDown);
   }, [onClose]);
+
+  console.log('SubFormulaModal 渲染, mapping:', mapping);
 
   return (
     <div className="fixed inset-0 z-[9999] flex items-center justify-center" onClick={onClose}>
@@ -116,7 +125,7 @@ export function SubFormulaModal({ subFormula, onClose }: SubFormulaModalProps) {
             </label>
             <div className="border border-gray-300 rounded-lg p-4 bg-white">
               <FormulaRenderer
-                formula={subFormula.chineseFormula}
+                formula={subFormula.englishFormula}
                 mapping={mapping}
                 formulaReferences={{}}
               />
