@@ -20,6 +20,14 @@ interface FormulaDetailModalProps {
   allFormulas?: Record<string, Formula>;
   groups?: any[];
   isPreviewMode?: boolean; // 预览模式：只显示预览界面，隐藏编辑UI
+  columnHeaders?: {
+    level1?: string;
+    level2?: string;
+    level3?: string;
+    level4?: string;
+    level5?: string;
+    level6?: string;
+  };
 }
 
 export function FormulaDetailModal({
@@ -30,6 +38,7 @@ export function FormulaDetailModal({
   allFormulas = {},
   groups = [],
   isPreviewMode = false,
+  columnHeaders = {},
 }: FormulaDetailModalProps) {
   const [editFormula, setEditFormula] = useState<Formula | null>(null);
   const [ast, setAst] = useState<any>(null);
@@ -241,7 +250,7 @@ export function FormulaDetailModal({
               {/* 分组字段 */}
               <div className="grid grid-cols-2 gap-2.5">
             <AutocompleteInput
-              label="模块"
+              label={columnHeaders?.level1 || '模块'}
               value={(editFormula as any).level1Group || ''}
               onChange={(value) => setEditFormula({ ...editFormula, level1Group: value } as any)}
               options={Array.from(new Set(
@@ -249,10 +258,10 @@ export function FormulaDetailModal({
                   .map((f: any) => f.level1Group)
                   .filter(Boolean)
               ))}
-              placeholder="例如：公共参数"
+              placeholder={`请输入${columnHeaders?.level1 || '模块'}`}
             />
             <AutocompleteInput
-              label="代码"
+              label={columnHeaders?.level2 || '代码'}
               value={(editFormula as any).level2Group || ''}
               onChange={(value) => setEditFormula({ ...editFormula, level2Group: value } as any)}
               options={Array.from(new Set(
@@ -260,10 +269,10 @@ export function FormulaDetailModal({
                   .map((f: any) => f.level2Group)
                   .filter(Boolean)
               ))}
-              placeholder="例如：PARAM"
+              placeholder={`请输入${columnHeaders?.level2 || '代码'}`}
             />
             <AutocompleteInput
-              label="全称"
+              label={columnHeaders?.level3 || '全称'}
               value={(editFormula as any).level3Group || ''}
               onChange={(value) => setEditFormula({ ...editFormula, level3Group: value } as any)}
               options={Array.from(new Set(
@@ -271,10 +280,10 @@ export function FormulaDetailModal({
                   .map((f: any) => f.level3Group)
                   .filter(Boolean)
               ))}
-              placeholder="例如：参数名称"
+              placeholder={`请输入${columnHeaders?.level3 || '全称'}`}
             />
             <AutocompleteInput
-              label="名称"
+              label={columnHeaders?.level4 || '名称'}
               value={(editFormula as any).level4Group || ''}
               onChange={(value) => setEditFormula({ ...editFormula, level4Group: value } as any)}
               options={Array.from(new Set(
@@ -282,10 +291,10 @@ export function FormulaDetailModal({
                   .map((f: any) => f.level4Group)
                   .filter(Boolean)
               ))}
-              placeholder="例如：参数"
+              placeholder={`请输入${columnHeaders?.level4 || '名称'}`}
             />
             <AutocompleteInput
-              label="条件"
+              label={columnHeaders?.level5 || '条件'}
               value={(editFormula as any).level5Group || ''}
               onChange={(value) => setEditFormula({ ...editFormula, level5Group: value } as any)}
               options={Array.from(new Set(
@@ -293,10 +302,10 @@ export function FormulaDetailModal({
                   .map((f: any) => f.level5Group)
                   .filter(Boolean)
               ))}
-              placeholder="例如：无"
+              placeholder={`请输入${columnHeaders?.level5 || '条件'}`}
             />
             <AutocompleteInput
-              label="计算方"
+              label={columnHeaders?.level6 || '计算方'}
               value={(editFormula as any).level6Group || ''}
               onChange={(value) => setEditFormula({ ...editFormula, level6Group: value } as any)}
               options={Array.from(new Set(
@@ -304,7 +313,7 @@ export function FormulaDetailModal({
                   .map((f: any) => f.level6Group)
                   .filter(Boolean)
               ))}
-              placeholder="例如：系统"
+              placeholder={`请输入${columnHeaders?.level6 || '计算方'}`}
             />
           </div>
 

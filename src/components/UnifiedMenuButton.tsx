@@ -16,6 +16,8 @@ interface UnifiedMenuButtonProps {
   onImport: () => void;
   onUrlImport: () => void;
   fileInputRef: React.RefObject<HTMLInputElement | null>;
+  onClearData?: () => void;
+  onEditColumnHeaders?: () => void;
 }
 
 export function UnifiedMenuButton({
@@ -27,6 +29,8 @@ export function UnifiedMenuButton({
   onImport,
   onUrlImport,
   fileInputRef,
+  onClearData,
+  onEditColumnHeaders,
 }: UnifiedMenuButtonProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [hasCloudConfig, setHasCloudConfig] = useState(false);
@@ -40,6 +44,7 @@ export function UnifiedMenuButton({
   const [isSaving, setIsSaving] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [showPasswordDialog, setShowPasswordDialog] = useState(false);
+  const [showClearConfirm, setShowClearConfirm] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
 
   // 读取云端配置
@@ -175,6 +180,30 @@ export function UnifiedMenuButton({
     action();
   };
 
+  const handleClearData = () => {
+    setIsOpen(false);
+    setShowClearConfirm(true);
+  };
+
+  const confirmClearData = () => {
+    setGroups([]);
+    setSelectedGroupId(null);
+    setSelectedFormulaId(null);
+    
+    // 清除本地存储
+    localStorage.removeItem('formulaMapper');
+    localStorage.removeItem('formulaMapper_headers');
+    localStorage.removeItem('formulaMapper_selectedGroupId');
+    
+    // 调用外部的清除回调(如果存在)
+    if (onClearData) {
+      onClearData();
+    }
+    
+    setShowClearConfirm(false);
+    toast.success('数据已清除');
+  };
+
   return (
     <>
       <div className="relative" ref={menuRef}>
@@ -217,6 +246,28 @@ export function UnifiedMenuButton({
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
               </svg>
               从 URL 导入
+            </button>
+            <button
+              onClick={handleClearData}
+              className="w-full px-4 py-2.5 text-left hover:bg-red-50 flex items-center gap-3 transition-colors"
+            >
+              <svg className="w-4 h-4 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+              </svg>
+              清除数据
+            </button>
+
+            <button
+              onClick={() => {
+                setIsOpen(false);
+                onEditColumnHeaders?.();
+              }}
+              className="w-full px-4 py-2.5 text-left hover:bg-blue-50 flex items-center gap-3 transition-colors"
+            >
+              <svg className="w-4 h-4 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+              </svg>
+              编辑表头
             </button>
 
             {/* 云端同步 */}
@@ -379,6 +430,46 @@ export function UnifiedMenuButton({
             setSelectedFormulaId(null);
           }}
         />
+      )}
+
+      {/* 清除数据确认对话框 */}
+      {showClearConfirm && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[1000]" onClick={() => setShowClearConfirm(false)}>
+          <div className="bg-white rounded-lg p-6 max-w-sm w-full mx-4" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-10 h-10 rounded-full bg-red-100 flex items-center justify-center">
+                <svg className="w-6 h-6 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                </svg>
+              </div>
+              <h3 className="text-lg font-semibold">确认清除数据</h3>
+            </div>
+            <p className="text-gray-600 mb-6">
+              此操作将删除所有本地数据,包括:
+              <br />
+              • 所有分组和公式
+              <br />
+              • 本地存储的配置
+              <br />
+              <br />
+              <span className="text-red-600 font-medium">此操作无法撤销,请确认是否继续?</span>
+            </p>
+            <div className="flex gap-2">
+              <button
+                onClick={() => setShowClearConfirm(false)}
+                className="flex-1 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+              >
+                取消
+              </button>
+              <button
+                onClick={confirmClearData}
+                className="flex-1 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
+              >
+                确认清除
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </>
   );

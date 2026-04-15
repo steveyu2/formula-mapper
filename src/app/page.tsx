@@ -104,6 +104,7 @@ function HomeContent() {
   const [editingFormula, setEditingFormula] = useState<Formula | null>(null);
   const [importError, setImportError] = useState<string>('');
   const [showUrlImportModal, setShowUrlImportModal] = useState(false);
+  const [showColumnHeadersModal, setShowColumnHeadersModal] = useState(false);
   const [importUrl, setImportUrl] = useState('');
   const [isImporting, setIsImporting] = useState(false);
   const [confirmDialog, setConfirmDialog] = useState<{
@@ -124,6 +125,14 @@ function HomeContent() {
 
   const [newGroupName, setNewGroupName] = useState('');
   const [newGroupParentId, setNewGroupParentId] = useState<string | null>(null);
+  const [editingColumnHeaders, setEditingColumnHeaders] = useState<{
+    level1: string;
+    level2: string;
+    level3: string;
+    level4: string;
+    level5: string;
+    level6: string;
+  }>({ level1: '', level2: '', level3: '', level4: '', level5: '', level6: '' });
   const [formulaForm, setFormulaForm] = useState<{
     name: string;
     englishFormula: string;
@@ -352,7 +361,15 @@ function HomeContent() {
   };
 
   const handleCreateGroup = (parentId: string | null) => {
-    const finalParentId = parentId !== null ? parentId : selectedGroupId;
+    // 如果明确传入 null,则创建顶级分组(用于 Sheet 标签)
+    // 如果传入 undefined,则使用当前选中的分组作为父分组
+    const finalParentId = parentId !== undefined ? parentId : selectedGroupId;
+    console.log('准备创建分组:', { 
+      passedParentId: parentId, 
+      selectedGroupId, 
+      finalParentId,
+      willBeRoot: finalParentId === null 
+    });
     setNewGroupName('');
     setNewGroupParentId(finalParentId);
     setIsCreateGroupModalOpen(true);
@@ -361,11 +378,65 @@ function HomeContent() {
   const handleSaveGroup = () => {
     if (!newGroupName.trim()) return;
     const newGroup = createGroup(newGroupName.trim(), newGroupParentId);
-    setGroups([...groups, newGroup]);
-    saveData([...groups, newGroup]);
+    const newGroups = [...groups, newGroup];
+    
+    console.log('创建分组:', {
+      name: newGroup.name,
+      parentId: newGroup.parentId,
+      isRoot: newGroup.parentId === null,
+      totalGroups: newGroups.length
+    });
+    
+    setGroups(newGroups);
+    saveData(newGroups);
+    
+    // 如果是顶级分组(parentId 为 null),自动选中新分组
+    if (newGroupParentId === null) {
+      setSelectedGroupId(newGroup.id);
+      toast.success(`Sheet "${newGroup.name}" 已创建`);
+    } else {
+      toast.success(`子分组 "${newGroup.name}" 已创建`);
+    }
+    
     setNewGroupName('');
     setNewGroupParentId(null);
     setIsCreateGroupModalOpen(false);
+  };
+
+  const handleOpenColumnHeadersEditor = () => {
+    setEditingColumnHeaders({
+      level1: columnHeaders?.level1 || '',
+      level2: columnHeaders?.level2 || '',
+      level3: columnHeaders?.level3 || '',
+      level4: columnHeaders?.level4 || '',
+      level5: columnHeaders?.level5 || '',
+      level6: columnHeaders?.level6 || '',
+    });
+    setShowColumnHeadersModal(true);
+  };
+
+  const handleSaveColumnHeaders = () => {
+    const newHeaders = {
+      level1: editingColumnHeaders.level1.trim() || undefined,
+      level2: editingColumnHeaders.level2.trim() || undefined,
+      level3: editingColumnHeaders.level3.trim() || undefined,
+      level4: editingColumnHeaders.level4.trim() || undefined,
+      level5: editingColumnHeaders.level5.trim() || undefined,
+      level6: editingColumnHeaders.level6.trim() || undefined,
+    };
+    setColumnHeaders(newHeaders);
+    saveData(groups, newHeaders);
+    setShowColumnHeadersModal(false);
+    toast.success('表头名称已更新');
+  };
+
+  // 处理表格列头直接编辑
+  const handleColumnHeaderEdit = (columnId: string, newName: string) => {
+    const headerKey = columnId.replace('Group', '') as keyof typeof columnHeaders;
+    const newHeaders = { ...columnHeaders, [headerKey]: newName };
+    setColumnHeaders(newHeaders);
+    saveData(groups, newHeaders);
+    toast.success(`列头 "${newName}" 已更新`);
   };
 
   const handleDeleteGroup = (groupId: string) => {
@@ -1125,6 +1196,7 @@ function HomeContent() {
                   onImport={() => fileInputRef.current?.click()}
                   onUrlImport={() => setShowUrlImportModal(true)}
                   fileInputRef={fileInputRef}
+                  onEditColumnHeaders={handleOpenColumnHeadersEditor}
                 />
                 
                 {/* Sheet Tabs */}
@@ -1132,7 +1204,7 @@ function HomeContent() {
                   groups={groups}
                   activeGroupId={selectedGroupId}
                   onSwitchSheet={setSelectedGroupId}
-                  onCreateSheet={() => handleCreateGroup('')}
+                  onCreateSheet={() => handleCreateGroup(null)}
                   onDeleteSheet={(groupId) => handleDeleteGroup(groupId)}
                   onRenameSheet={(groupId, newName) => handleEditGroup(groupId, newName)}
                   onReorderSheets={(newGroups) => {
@@ -1155,6 +1227,7 @@ function HomeContent() {
                 onDeleteFormula={handleDeleteFormula}
                 onOpenSortModal={handleOpenSortModal}
                 columnHeaders={columnHeaders}
+                onColumnHeaderEdit={handleColumnHeaderEdit}
               />
             </div>
           </div>
@@ -1174,6 +1247,7 @@ function HomeContent() {
           return acc;
         }, {} as Record<string, Formula>)}
         groups={groups}
+        columnHeaders={columnHeaders}
       />
 
       {/* 排序弹窗 */}
@@ -1197,13 +1271,72 @@ function HomeContent() {
         variant="danger"
       />
 
+      {/* 编辑表头名称对话框 */}
+      {showColumnHeadersModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/30" onClick={() => setShowColumnHeadersModal(false)} />
+          <div className="relative bg-white rounded-xl shadow-xl max-w-lg w-full">
+            <div className="px-2.5 py-2 border-b">
+              <h3 className="text-lg font-semibold">编辑表头名称</h3>
+              <p className="text-sm text-gray-500 mt-1">自定义表格列的显示名称，修改后会同步到所有相关表单</p>
+            </div>
+            <div className="p-2.5">
+              <div className="grid grid-cols-2 gap-3">
+                {([
+                  { key: 'level1', default: '分组1', placeholder: '例如：模块' },
+                  { key: 'level2', default: '分组2', placeholder: '例如：代码' },
+                  { key: 'level3', default: '分组3', placeholder: '例如：全称' },
+                  { key: 'level4', default: '分组4', placeholder: '例如：名称' },
+                  { key: 'level5', default: '分组5', placeholder: '例如：条件' },
+                  { key: 'level6', default: '分组6', placeholder: '例如：计算方' },
+                ] as const).map(({ key, default: defaultLabel, placeholder }) => (
+                  <div key={key}>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      {defaultLabel}
+                    </label>
+                    <input
+                      type="text"
+                      value={editingColumnHeaders[key]}
+                      onChange={(e) => setEditingColumnHeaders({ ...editingColumnHeaders, [key]: e.target.value })}
+                      placeholder={placeholder}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                    />
+                  </div>
+                ))}
+              </div>
+            </div>
+            <div className="px-6 py-4 border-t flex justify-end gap-3">
+              <button
+                onClick={() => setShowColumnHeadersModal(false)}
+                className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
+              >
+                取消
+              </button>
+              <button
+                onClick={handleSaveColumnHeaders}
+                className="px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg transition-colors"
+              >
+                保存
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* 创建分组对话框 */}
       {isCreateGroupModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
           <div className="absolute inset-0 bg-black/30" onClick={() => setIsCreateGroupModalOpen(false)} />
           <div className="relative bg-white rounded-xl shadow-xl max-w-md w-full">
             <div className="px-2.5 py-2 border-b">
-              <h3 className="text-lg font-semibold">创建新分组</h3>
+              <h3 className="text-lg font-semibold">
+                {newGroupParentId === null ? '创建新 Sheet' : '创建子分组'}
+              </h3>
+              <p className="text-sm text-gray-500 mt-1">
+                {newGroupParentId === null 
+                  ? '将创建顶级分组，显示在 Sheet 标签栏中' 
+                  : `将创建为 "${groups.find(g => g.id === newGroupParentId)?.name}" 的子分组`}
+              </p>
             </div>
             <div className="p-2.5">
               <input

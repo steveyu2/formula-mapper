@@ -48,6 +48,7 @@ interface FormulaSpreadsheetProps {
     level6?: string;
     formula?: string;
   };
+  onColumnHeaderEdit?: (columnId: string, newName: string) => void;
 }
 
 export function FormulaSpreadsheet({
@@ -61,6 +62,7 @@ export function FormulaSpreadsheet({
   onOpenSortModal,
   isPreviewMode = false,
   columnHeaders,
+  onColumnHeaderEdit,
 }: FormulaSpreadsheetProps) {
   // 从本地存储读取缩放值
   const [zoom, setZoom] = useState(() => {
@@ -77,6 +79,37 @@ export function FormulaSpreadsheet({
       localStorage.setItem('formula-spreadsheet-zoom', zoom.toString());
     }
   }, [zoom]);
+
+  // 列头编辑状态
+  const [editingHeader, setEditingHeader] = useState<{ columnId: string; value: string } | null>(null);
+  const [editingHeaderValue, setEditingHeaderValue] = useState('');
+
+  // 开始编辑列头
+  const handleStartEditHeader = useCallback((columnId: string, currentValue: string) => {
+    // 只允许编辑分组列
+    if (!columnId.startsWith('level')) return;
+    
+    setEditingHeader({ columnId, value: currentValue });
+    setEditingHeaderValue(currentValue);
+  }, []);
+
+  // 保存列头编辑
+  const handleSaveHeader = useCallback(() => {
+    if (!editingHeader) return;
+    
+    const newName = editingHeaderValue.trim();
+    if (newName) {
+      onColumnHeaderEdit?.(editingHeader.columnId, newName);
+    }
+    setEditingHeader(null);
+    setEditingHeaderValue('');
+  }, [editingHeader, editingHeaderValue, onColumnHeaderEdit]);
+
+  // 取消编辑列头
+  const handleCancelEditHeader = useCallback(() => {
+    setEditingHeader(null);
+    setEditingHeaderValue('');
+  }, []);
 
   // 列宽调整
   const [columnSizes, setColumnSizes] = useState<Record<string, number>>({});
@@ -841,7 +874,33 @@ export function FormulaSpreadsheet({
                         }}
                       >
                         <div className="flex items-center gap-1">
-                          <span className="flex-1">{flexRender(header.column.columnDef.header, header.getContext())}</span>
+                          {editingHeader?.columnId === header.column.id ? (
+                            <input
+                              type="text"
+                              value={editingHeaderValue}
+                              onChange={(e) => setEditingHeaderValue(e.target.value)}
+                              onKeyDown={(e) => {
+                                if (e.key === 'Enter') handleSaveHeader();
+                                if (e.key === 'Escape') handleCancelEditHeader();
+                              }}
+                              onBlur={handleSaveHeader}
+                              className="w-full px-1 py-0.5 text-sm font-semibold border border-blue-500 rounded outline-none bg-white"
+                              autoFocus
+                              onClick={(e) => e.stopPropagation()}
+                            />
+                          ) : (
+                            <span 
+                              className="flex-1 cursor-pointer hover:text-blue-600 transition-colors"
+                              onDoubleClick={(e) => {
+                                e.stopPropagation();
+                                const headerText = flexRender(header.column.columnDef.header, header.getContext());
+                                handleStartEditHeader(header.column.id, String(headerText));
+                              }}
+                              title="双击编辑列头名称"
+                            >
+                              {flexRender(header.column.columnDef.header, header.getContext())}
+                            </span>
+                          )}
                           
                           {/* 固定/取消固定按钮 */}
                           {header.column.id !== 'id' && (
