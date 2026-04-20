@@ -241,7 +241,6 @@ function HomeContent() {
   // 处理 cloud query 参数绑定
   const handleCloudQueryBind = async (endpoint: string) => {
     if (cloudLoading) {
-      console.log('[Cloud] Already loading, skipping');
       return;
     }
     
@@ -364,12 +363,6 @@ function HomeContent() {
     // 如果明确传入 null,则创建顶级分组(用于 Sheet 标签)
     // 如果传入 undefined,则使用当前选中的分组作为父分组
     const finalParentId = parentId !== undefined ? parentId : selectedGroupId;
-    console.log('准备创建分组:', { 
-      passedParentId: parentId, 
-      selectedGroupId, 
-      finalParentId,
-      willBeRoot: finalParentId === null 
-    });
     setNewGroupName('');
     setNewGroupParentId(finalParentId);
     setIsCreateGroupModalOpen(true);
@@ -379,13 +372,6 @@ function HomeContent() {
     if (!newGroupName.trim()) return;
     const newGroup = createGroup(newGroupName.trim(), newGroupParentId);
     const newGroups = [...groups, newGroup];
-    
-    console.log('创建分组:', {
-      name: newGroup.name,
-      parentId: newGroup.parentId,
-      isRoot: newGroup.parentId === null,
-      totalGroups: newGroups.length
-    });
     
     setGroups(newGroups);
     saveData(newGroups);

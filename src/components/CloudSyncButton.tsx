@@ -108,27 +108,22 @@ export function CloudSyncButton({
   const handleSaveWithPassword = async () => {
     if (!config) return;
     
-    console.log('[CloudSync] 检查是否需要密码...');
     
     try {
       // 先检查 Worker 是否需要密码
       const response = await fetch(`${config.endpoint}/need-password`);
       const result = await response.json();
       
-      console.log('[CloudSync] needPassword 结果:', result);
       
       if (result.needPassword) {
         // 需要密码，弹出输入框
-        console.log('[CloudSync] 弹出密码输入框');
         setShowPasswordDialog(true);
       } else {
         // 不需要密码，直接保存
-        console.log('[CloudSync] 不需要密码，直接保存');
         handleSaveToCloud();
       }
     } catch (error) {
       // 如果检测失败，仍然弹出密码框
-      console.log('[CloudSync] 检测失败，弹出密码框:', error);
       setShowPasswordDialog(true);
     }
   };

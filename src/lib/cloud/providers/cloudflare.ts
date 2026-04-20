@@ -29,7 +29,6 @@ export class CloudflareStorageProvider extends BaseStorageProvider {
     return this.wrapOperation(async () => {
       await this.withRetry(async () => {
         const url = `${this.cloudflareConfig.endpoint}/save`;
-        console.log('[Cloudflare] Saving to:', url);
         
         // 只包含定义的字段，避免 undefined 导致 JSON 格式错误
         const requestBody: any = { key, data };
@@ -52,8 +51,6 @@ export class CloudflareStorageProvider extends BaseStorageProvider {
           },
           body: JSON.stringify(requestBody),
         });
-
-        console.log('[Cloudflare] Response status:', response.status);
 
         if (!response.ok) {
           const text = await response.text();

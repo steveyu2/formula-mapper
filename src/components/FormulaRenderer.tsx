@@ -33,11 +33,8 @@ export const FormulaRenderer = memo(({
 }: FormulaRendererProps) => {
   // 缓存 token 化结果
   const tokens = useMemo(() => {
-    console.log('=== FormulaRenderer ===');
-    console.log('输入的 formula:', formula);
-    console.log('mapping:', mapping);
     const result = tokenizeFormula(formula);
-    console.log('tokenize 结果:', result);
+    
     return result;
   }, [formula]);
 
