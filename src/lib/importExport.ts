@@ -66,7 +66,7 @@ export function importData(json: string): { groups: FormulaGroup[]; columnHeader
 
       // 验证公式数据结构
       group.formulas.forEach((formula, formulaIndex) => {
-        if (!formula.id || !formula.name || !formula.englishFormula || !formula.chineseFormula) {
+        if (!formula.id || formula.name === undefined || !formula.englishFormula || !formula.chineseFormula) {
           throw new Error(
             `第 ${index + 1} 个分组中第 ${formulaIndex + 1} 个公式的数据格式不正确`
           );

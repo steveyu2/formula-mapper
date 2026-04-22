@@ -159,7 +159,7 @@ export function FormulaPreviewModal({ formula, groups, onClose }: FormulaPreview
                 <label className="block text-sm font-medium text-gray-700 mb-1.5">公式渲染视图</label>
                 <div className="border border-gray-300 rounded-lg p-4 bg-white">
                   <FormulaRenderer
-                    formula={formula.chineseFormula}
+                    formula={formula.englishFormula}
                     mapping={mapping}
                     formulaReferences={formulaReferences}
                     onFormulaReferenceClick={handleFormulaReferenceClick}
