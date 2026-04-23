@@ -288,11 +288,11 @@ function HomeContent() {
         setSelectedFormulaId(null);
         toast.success('已从云端加载数据');
         
-        // 清理 URL 参数
+        // 清理 URL 参数（使用 replace 避免添加历史记录）
         const params = new URLSearchParams(window.location.search);
         params.delete('cloud');
         const newUrl = params.toString() ? `${pathname}?${params.toString()}` : pathname;
-        router.push(newUrl, { scroll: false });
+        window.history.replaceState(null, '', newUrl);
       } else {
         toast.error(result.error || '从云端加载数据失败');
         
@@ -300,7 +300,7 @@ function HomeContent() {
         const params = new URLSearchParams(window.location.search);
         params.delete('cloud');
         const newUrl = params.toString() ? `${pathname}?${params.toString()}` : pathname;
-        router.push(newUrl, { scroll: false });
+        window.history.replaceState(null, '', newUrl);
       }
     } catch (error) {
       toast.error(error instanceof Error ? error.message : '从云端加载数据失败');
@@ -309,7 +309,7 @@ function HomeContent() {
       const params = new URLSearchParams(window.location.search);
       params.delete('cloud');
       const newUrl = params.toString() ? `${pathname}?${params.toString()}` : pathname;
-      router.push(newUrl, { scroll: false });
+      window.history.replaceState(null, '', newUrl);
     } finally {
       setCloudLoading(false);
     }
